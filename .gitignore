@@ -25,3 +25,4 @@ releases/*.zip
 *-backup-*
 *.backup-*
 /tmp/
+*.bin

@@ -20,10 +20,10 @@ static Version firmware_version = {
     .git_branch = "esp32-port",
     .git_branch_num = "0",
     .build_date = __DATE__,
-    .version = "1.4.3",
+    .version = "1.4.3", // OFW 1.4.3 base, aligned with Momentum mntm-012 (dev parity)
     .custom_name = NULL,
-    .firmware_origin = "ESP32 Port",
-    .git_origin = "local",
+    .firmware_origin = "ESP32 Port (Momentum parity)",
+    .git_origin = "https://github.com/Next-Flip/Momentum-Firmware",
     .target = 32,
     .dirty_flag = true,
 };

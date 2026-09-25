@@ -59,6 +59,8 @@
 #include "ditec_gol4.h"
 #include "keyfinder.h"
 #include "schrader_gg4.h"
+#include "nord_ice.h"
+#include "allstar_firefly.h"
 #include "tpms_ford.h"
 #include "tpms_renault.h"
 #include "tpms_citroen.h"

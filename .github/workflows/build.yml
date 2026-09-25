@@ -114,6 +114,17 @@ jobs:
             cp "$BUILD/flash_project_args" "$STAGE/flash_args.txt"
           fi
 
+          # --- merged single-file image for launchers (M5Launcher etc.) ---
+          # Produces artifact_staging/merged-flash-<board>.bin that can be
+          # flashed in one go at 0x0:  esptool write_flash 0x0 merged-*.bin
+          # This is the file users asked for to "add to launcher".
+          pip install -q esptool
+          python tools/merge_flash_bin.py --build-dir "$BUILD" --chip "$CHIP" --flash-size "$FLASH_SIZE" \
+            --output "$STAGE/merged-flash-${BOARD}.bin"
+          ls -lh "$STAGE/merged-flash-${BOARD}.bin"
+          # Also create the short launcher name some launchers expect
+          cp "$STAGE/merged-flash-${BOARD}.bin" "$STAGE/merged-flash.bin"
+
           # Generate board-specific flash scripts by substituting template placeholders
           sed \
             -e "s/__BOARD_NAME__/${BOARD}/g" \
