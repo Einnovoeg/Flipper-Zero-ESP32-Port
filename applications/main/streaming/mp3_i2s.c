@@ -98,7 +98,7 @@ bool mp3_i2s_init(uint32_t sample_rate) {
     (void)sample_rate;
     FURI_LOG_W(TAG, "no speaker on this board");
     return false;
-#endif
+#else
     if(i2s_tx) return true;
 
     tx_buf = heap_caps_malloc(CHUNK_FRAMES * 2 * sizeof(int16_t),
@@ -165,6 +165,7 @@ err_chan:
 err_rb:
     heap_caps_free(tx_buf);           tx_buf = NULL;
     return false;
+#endif
 }
 
 void mp3_i2s_deinit(void) {
