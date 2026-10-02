@@ -38,5 +38,7 @@ Not yet build-verified — see status per app.
 ./buildFap.sh applications_user/checkers
 ./buildFap.sh applications_user/proto_pirate
 ```
-CI has no FAP job yet — add one that builds firmware then these two apps and
-uploads the `.fap` artifacts (see `.github/workflows/build.yml`).
+CI builds these automatically: `.github/workflows/build.yml` has a "Build queued
+FAPs (T-Embed only)" step (continue-on-error so experiments never block firmware
+artifacts) that runs `buildFap.sh` for both apps and stages `faps/*.fap|*.fal`
+into the `flipper-lilygo-t-embed-cc1101` artifact. Copy them to SD `/ext/apps/`.
