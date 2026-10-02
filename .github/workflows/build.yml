@@ -159,7 +159,13 @@ jobs:
         run: |
           source ~/esp/esp-idf/export.sh
           mkdir -p artifact_staging/faps
-          ./buildFap.sh applications_user/checkers
+          for app in checkers chess flappy_bird minesweeper solitaire 2048 arkanoid \
+              t_rex_runner reversi passgen metronome qrcode barcode_gen tone_gen \
+              flashlight fmf_to_sub esubghz_chat paint text_viewer hex_viewer \
+              programmer_calculator; do
+            echo "=== FAP: $app ==="
+            ./buildFap.sh "applications_user/$app" || echo "FAP FAILED: $app (see log above)"
+          done
           cp build_t_embed/fap/*.fap artifact_staging/faps/ 2>/dev/null || echo "no .fap files produced"
           cp build_t_embed/fap/*.fal artifact_staging/faps/ 2>/dev/null || true
           ls -lh artifact_staging/faps/

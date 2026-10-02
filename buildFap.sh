@@ -327,6 +327,11 @@ build_for_target() {
     fi
 
     TARGET_CFLAGS+=(-DFAP_VERSION=\"1.0\")
+    # Per-app storage paths (mirrors Flipper fbt/uFBT so upstream FAPs using
+    # APP_DATA_PATH / APP_ASSETS_PATH compile unmodified). EXT_PATH comes from
+    # storage.h, which every FAP already includes for file access.
+    TARGET_CFLAGS+=("-DAPP_DATA_PATH=EXT_PATH(\"apps_data/${APP_ID}\")")
+    TARGET_CFLAGS+=("-DAPP_ASSETS_PATH=EXT_PATH(\"apps_assets/${APP_ID}\")")
     [ -n "$FAP_CDEFINES" ] && TARGET_CFLAGS+=($FAP_CDEFINES)
     # Extra compiler flags (space-separated), e.g. to relax GCC 14 warnings
     # that upstream apps written for older toolchains trip over:
