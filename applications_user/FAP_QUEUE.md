@@ -1,8 +1,9 @@
 # FAP queue (Momentum-Apps ports)
 
-Sources vendored from Next-Flip/Momentum-Apps `dev` for FAP builds via
+Checkers vendored from Next-Flip/Momentum-Apps `dev` for FAP builds via
 `./buildFap.sh applications_user/<app>` (firmware must be built first).
-Not yet build-verified — see status per app.
+CI builds it on the T-Embed job (see `.github/workflows/build.yml`,
+"Build queued FAPs") and stages `faps/*.fap` into the board artifact.
 
 ## checkers — READY (expected to build)
 - Upstream: `checkers` by H4W9 (FlipCheckers 1.0, Games).
@@ -11,26 +12,19 @@ Not yet build-verified — see status per app.
   18 externals, 1 missing: `furi_assert` (likely macro-resolvable; else add via
   `tools/add_symbol.py` following the "missed api symbols" precedent).
 
-## proto_pirate — NEEDS WORK (see below, then build)
-- Upstream: `proto_pirate` 3.0 + embedded `protopirate_am_plugin` (.fal) by
-  RocketGod-git, xMasterX, zero-mega et al. (Sub-GHz car-fob decoder).
-- API scan of the *built* file set (main app + the 14 plugin sources listed in
-  its `application.fam`) vs our firmware API table leaves these true gaps:
-  - `furi_check`, `notification_error`, `notification_success`,
-    `scene_previous` → add via `tools/add_symbol.py`.
-  - `subghz_block_generic_global_counter_override_get` → verify it exists in
-    `lib/subghz/blocks/generic.c`; if yes, export it.
-  - Protocol symbols referenced only by plugin `.c` files *not* in the
-    `application.fam` plugin sources (ford_v1+, honda_static, kia_v2+,
-    land_rover, mazda_v0, mitsubishi_v0, fiat_marelli, porsche_cayenne,
-    scher_khan…): either extend the plugin `sources=[...]` list to compile
-    them in, or confirm they resolve from firmware (OFW has some natively;
-    Momentum dev removed Starline/ScherKhan/Kia from its main app).
-- NOTE: references to `fiat_marelli_*` / `porsche_cayenne_*` have no matching
-  source file in the vendored tree — check upstream for renames before
-  extending sources.
-- Build gate: run `tools/check_fap_symbols.py` on the linked `.fap`/`.elf`
-  (see `firmware_api.c` header) and iterate until clean, then test on T-Embed.
+## proto_pirate — ALREADY PRESENT (no action)
+- Do NOT vendor Momentum-Apps `proto_pirate` 3.0 here: this repo already ships
+  a port-adapted `applications_user/protopirate/` at **v3.2** (newer than
+  upstream dev 3.0, with extra am/am_vag/fm/fm_f4 plugins and local fixes).
+  Vendoring upstream alongside it breaks the firmware build with
+  `Duplicate app declaration for 'proto_pirate'` in `tools/fam/generate.py`,
+  so the upstream copy was removed again. If upstream ever pulls ahead,
+  upgrade `protopirate/` in place instead of adding a second copy.
+- API note (from scanning upstream 3.0): the only firmware gap it would have
+  needed is `subghz_block_generic_global_counter_override_get` (now exported
+  via `tools/add_symbol.py`, 990 entries); `sequence_error/success` were
+  already exported, `furi_check`/`furi_assert` are macros, and the remaining
+  `scene_previous`/helper refs are in-app.
 
 ## Building
 ```bash

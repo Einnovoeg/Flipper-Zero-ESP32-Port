@@ -160,7 +160,6 @@ jobs:
           source ~/esp/esp-idf/export.sh
           mkdir -p artifact_staging/faps
           ./buildFap.sh applications_user/checkers
-          ./buildFap.sh applications_user/proto_pirate
           cp build_t_embed/fap/*.fap artifact_staging/faps/ 2>/dev/null || echo "no .fap files produced"
           cp build_t_embed/fap/*.fal artifact_staging/faps/ 2>/dev/null || true
           ls -lh artifact_staging/faps/
