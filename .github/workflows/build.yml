@@ -114,6 +114,12 @@ jobs:
             cp "$BUILD/flash_project_args" "$STAGE/flash_args.txt"
           fi
 
+          # ELF + map for decoding Guru panics with addr2line (not flashed,
+          # just artifacts for post-mortem: xtensa-esp32s3-elf-addr2line -e
+          # furi_esp32.elf -pfiaC <PC...>).
+          cp "$BUILD/furi_esp32.elf" "$STAGE/" 2>/dev/null || true
+          cp "$BUILD/furi_esp32.map" "$STAGE/" 2>/dev/null || true
+
           # --- merged single-file image for launchers (M5Launcher etc.) ---
           # Produces artifact_staging/merged-flash-<board>.bin that can be
           # flashed in one go at 0x0:  esptool write_flash 0x0 merged-*.bin

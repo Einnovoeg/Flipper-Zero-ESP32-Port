@@ -14,6 +14,7 @@
 #include <btshim.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define TAG "WlanHal"
 // Worker macht esp_wifi/lwIP-Calls; 4096 Words (16 KB) statt 8192 (32 KB),
@@ -75,6 +76,21 @@ typedef struct {
 } WlanCmd;
 
 static bool s_sntp_started = false;
+static bool s_sntp_synced = false;
+
+/** SNTP sync callback: makes WiFi time-sync visible in the log (and proves
+ * the clock the Clock app shows actually comes from the network). Runs in a
+ * system task — keep it to logging only. */
+static void wlan_sntp_sync_cb(struct timeval* tv) {
+    (void)tv;
+    s_sntp_synced = true;
+    time_t now = time(NULL);
+    char buf[32];
+    strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&now));
+    ESP_LOGI(TAG, "SNTP synced, system time now %s UTC (epoch %lld)", buf, (long long)now);
+    FURI_LOG_I(TAG, "SNTP synced, clock updated");
+}
+
 static bool s_started = false;
 static bool s_bt_was_on = false;
 static bool s_netif_inited = false;
@@ -136,6 +152,7 @@ static void wlan_event_handler(void* arg, esp_event_base_t event_base, int32_t e
         if(!s_sntp_started) {
             esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
             esp_sntp_setservername(0, "pool.ntp.org");
+            sntp_set_time_sync_notification_cb(wlan_sntp_sync_cb);
             esp_sntp_init();
             s_sntp_started = true;
             ESP_LOGI(TAG, "SNTP started (pool.ntp.org)");
