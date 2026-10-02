@@ -357,6 +357,7 @@ static const struct sym_entry firmware_api_table[] = {
     { .hash = 0x0d39ad3d, .address = (uint32_t)malloc }, /* malloc */
     { .hash = 0x0d67f2c3, .address = (uint32_t)composite_api_resolver_free }, /* composite_api_resolver_free */
     { .hash = 0x0d69b738, .address = (uint32_t)__umoddi3 }, /* __umoddi3 */
+    { .hash = 0x0d784e8b, .address = (uint32_t)subghz_block_generic_global_counter_override_get }, /* subghz_block_generic_global_counter_override_get */
     { .hash = 0x0d7c905a, .address = (uint32_t)view_port_set_orientation }, /* view_port_set_orientation */
     { .hash = 0x0d827481, .address = (uint32_t)memchr }, /* memchr */
     { .hash = 0x0d827524, .address = (uint32_t)memcmp }, /* memcmp */
