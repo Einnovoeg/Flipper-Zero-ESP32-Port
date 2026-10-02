@@ -209,3 +209,27 @@ bool ble_profile_hid_mouse_scroll(FuriHalBleProfileBase* profile, int8_t delta) 
     return hid_profile && hid_profile->ble_hid &&
            ble_hid_mouse_scroll(hid_profile->ble_hid, delta);
 }
+
+bool ble_profile_hid_gamepad_press(FuriHalBleProfileBase* profile, uint8_t button) {
+    BleProfileHid* hid_profile = ble_profile_hid_cast(profile);
+    return hid_profile && hid_profile->ble_hid &&
+           ble_hid_gamepad_press(hid_profile->ble_hid, button);
+}
+
+bool ble_profile_hid_gamepad_release(FuriHalBleProfileBase* profile, uint8_t button) {
+    BleProfileHid* hid_profile = ble_profile_hid_cast(profile);
+    return hid_profile && hid_profile->ble_hid &&
+           ble_hid_gamepad_release(hid_profile->ble_hid, button);
+}
+
+bool ble_profile_hid_gamepad_release_all(FuriHalBleProfileBase* profile) {
+    BleProfileHid* hid_profile = ble_profile_hid_cast(profile);
+    return hid_profile && hid_profile->ble_hid &&
+           ble_hid_gamepad_release_all(hid_profile->ble_hid);
+}
+
+bool ble_profile_hid_gamepad_move(FuriHalBleProfileBase* profile, int8_t x, int8_t y) {
+    BleProfileHid* hid_profile = ble_profile_hid_cast(profile);
+    return hid_profile && hid_profile->ble_hid &&
+           ble_hid_gamepad_move(hid_profile->ble_hid, x, y);
+}

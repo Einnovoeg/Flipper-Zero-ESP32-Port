@@ -21,6 +21,7 @@ extern "C" {
 #include <furi_hal_light.h>
 #include <furi_hal_vibro.h>
 #include <furi_hal_speaker.h>
+#include <furi_hal_mic.h>
 #include <furi_hal_display.h>
 #include <furi_hal_touch.h>
 #include <furi_hal_spi.h>

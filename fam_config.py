@@ -50,6 +50,7 @@ APPS = [
     "wifi",
     "ota_updater",
     "streaming",
+    "voice_memo",
     "nrf24",
     "ble_spam",
     "js_app",
