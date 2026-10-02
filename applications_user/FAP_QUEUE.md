@@ -1,9 +1,33 @@
 # FAP queue (Momentum-Apps ports)
 
-Checkers vendored from Next-Flip/Momentum-Apps `dev` for FAP builds via
+Batch 1 (21 apps) vendored from Next-Flip/Momentum-Apps `dev`, built via
 `./buildFap.sh applications_user/<app>` (firmware must be built first).
-CI builds it on the T-Embed job (see `.github/workflows/build.yml`,
-"Build queued FAPs") and stages `faps/*.fap` into the board artifact.
+CI builds them all on the T-Embed job (see `.github/workflows/build.yml`,
+"Build queued FAPs", per-app isolated so one failure never hides others)
+and stages `faps/*.fap|*.fal` into the board artifact — copy to SD `/ext/apps/`.
+
+Games: checkers, chess, flappy_bird, minesweeper, solitaire, 2048, arkanoid,
+t_rex_runner, reversi. Tools: passgen, metronome, qrcode, barcode_gen,
+tone_gen, flashlight, fmf_to_sub, esubghz_chat, paint, text_viewer,
+hex_viewer, programmer_calculator.
+
+Porting notes (all verified against `firmware_api.c`, now 998 entries):
+- `furi_assert`/`furi_check`/`ADD_SCENE`/`EXT_PATH`/`FURI_LOG_*` are macros —
+  no API entries needed.
+- Exported for this batch via `tools/add_symbol.py`: `dialog_ex_reset`,
+  `canvas_draw_icon_animation`, `icon_animation_{alloc,free,start,stop}`,
+  `furi_hal_speaker_{start,stop}`, plus earlier
+  `subghz_block_generic_global_counter_override_get`.
+- `buildFap.sh` now defines per-app `APP_DATA_PATH`/`APP_ASSETS_PATH`
+  (mirrors fbt/uFBT) so upstream FAPs using them compile unmodified.
+- This port's dialogs file browser is `dialog_file_browser_show` (newer SDK
+  name); none of the batch-1 apps use the old `dialogs_file_browser_show`.
+
+Display / color: the app canvas is 1-bit (`ColorWhite/Black/XOR` only); LCD
+color comes from the driver's mono→RGB565 fg/bg theme mapping. Per-pixel
+full-color games are NOT possible through the canvas API — that needs a new
+color framebuffer API + driver support (firmware feature, proposed separately).
+`esubghz_chat` needs live CC1101 verification on T-Embed after build.
 
 ## checkers — READY (expected to build)
 - Upstream: `checkers` by H4W9 (FlipCheckers 1.0, Games).
