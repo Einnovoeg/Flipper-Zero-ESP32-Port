@@ -33,7 +33,7 @@ static int file_name_cmp(const void* a, const void* b) {
 
 static void voice_memo_submenu_callback(void* context, uint32_t index);
 
-/* Rebuild the submenu from /ext/voice_memos/*.wav. */
+/* Rebuild the submenu from the voice_memos dir (.wav takes). */
 static void voice_memo_rescan(VoiceMemoApp* app, const char* status) {
     Storage* storage = furi_record_open(RECORD_STORAGE);
     storage_simply_mkdir(storage, app->dir_path);
@@ -57,7 +57,7 @@ static void voice_memo_rescan(VoiceMemoApp* app, const char* status) {
         storage_dir_close(dir);
     }
     storage_file_free(dir);
-    furi_record_close(storage);
+    furi_record_close(RECORD_STORAGE);
 
     qsort(
         app->file_names, app->file_count, VOICE_MEMO_NAME_LEN, file_name_cmp);
@@ -93,7 +93,10 @@ static bool voice_memo_next_name(VoiceMemoApp* app, char* out, size_t outsz) {
         char base[VOICE_MEMO_NAME_LEN];
         snprintf(base, sizeof(base), "memo_%03d.wav", n);
         char full[VOICE_MEMO_PATH_LEN];
-        snprintf(full, sizeof(full), "%s/%s", app->dir_path, base);
+        full[0] = '\0';
+        strncat(full, app->dir_path, sizeof(full) - 1);
+        strncat(full, "/", sizeof(full) - strlen(full) - 1);
+        strncat(full, base, sizeof(full) - strlen(full) - 1);
         FileInfo info;
         if(storage_common_stat(storage, full, &info) != FSE_OK) {
             strncpy(out, base, outsz - 1);
@@ -102,7 +105,7 @@ static bool voice_memo_next_name(VoiceMemoApp* app, char* out, size_t outsz) {
             break;
         }
     }
-    furi_record_close(storage);
+    furi_record_close(RECORD_STORAGE);
     return found;
 }
 
@@ -162,7 +165,7 @@ static int32_t voice_memo_record_thread(void* ctx) {
         furi_hal_mic_release();
     }
 
-    furi_record_close(storage);
+    furi_record_close(RECORD_STORAGE);
     if(!ok) {
         /* Drop empty/failed takes so the list never shows junk. */
         Storage* st = furi_record_open(RECORD_STORAGE);
@@ -187,7 +190,7 @@ static int32_t voice_memo_play_thread(void* ctx) {
         FURI_LOG_E(TAG, "cannot open %s", app->file_path);
         storage_file_close(f);
         storage_file_free(f);
-        furi_record_close(storage);
+        furi_record_close(RECORD_STORAGE);
         view_dispatcher_send_custom_event(app->dispatcher, VOICE_MEMO_EV_STOP);
         return 0;
     }
@@ -199,7 +202,7 @@ static int32_t voice_memo_play_thread(void* ctx) {
         FURI_LOG_E(TAG, "speaker busy");
         storage_file_close(f);
         storage_file_free(f);
-        furi_record_close(storage);
+        furi_record_close(RECORD_STORAGE);
         view_dispatcher_send_custom_event(app->dispatcher, VOICE_MEMO_EV_STOP);
         return 0;
     }
@@ -246,7 +249,7 @@ static int32_t voice_memo_play_thread(void* ctx) {
     mp3_i2s_deinit();
     storage_file_close(f);
     storage_file_free(f);
-    furi_record_close(storage);
+    furi_record_close(RECORD_STORAGE);
     view_dispatcher_send_custom_event(app->dispatcher, VOICE_MEMO_EV_STOP);
     return 0;
 }
@@ -269,7 +272,10 @@ static void voice_memo_start_record(VoiceMemoApp* app) {
         voice_memo_rescan(app, "Bank full (999 memos)");
         return;
     }
-    snprintf(app->file_path, sizeof(app->file_path), "%s/%s", app->dir_path, base);
+    app->file_path[0] = '\0';
+    strncat(app->file_path, app->dir_path, sizeof(app->file_path) - 1);
+    strncat(app->file_path, "/", sizeof(app->file_path) - strlen(app->file_path) - 1);
+    strncat(app->file_path, base, sizeof(app->file_path) - strlen(app->file_path) - 1);
     voice_memo_view_set_mode(app->vm_view, VoiceMemoViewModeRecord);
     voice_memo_view_set_file(app->vm_view, base);
     voice_memo_view_set_recording(app->vm_view, 0, 0);
@@ -282,12 +288,13 @@ static void voice_memo_start_record(VoiceMemoApp* app) {
 
 static void voice_memo_start_play(VoiceMemoApp* app, uint8_t file_index) {
     if(file_index >= app->file_count) return;
-    snprintf(
+    app->file_path[0] = '\0';
+    strncat(app->file_path, app->dir_path, sizeof(app->file_path) - 1);
+    strncat(app->file_path, "/", sizeof(app->file_path) - strlen(app->file_path) - 1);
+    strncat(
         app->file_path,
-        sizeof(app->file_path),
-        "%s/%s",
-        app->dir_path,
-        app->file_names[file_index]);
+        app->file_names[file_index],
+        sizeof(app->file_path) - strlen(app->file_path) - 1);
     voice_memo_view_set_mode(app->vm_view, VoiceMemoViewModePlay);
     voice_memo_view_set_file(app->vm_view, app->file_names[file_index]);
     voice_memo_view_set_playback(app->vm_view, 0, 0, 0);

@@ -29,7 +29,7 @@ typedef struct {
     Gui* gui;
     ViewDispatcher* dispatcher;
     Submenu* submenu;
-    VoiceMemoView* vm_view;
+    VoiceMemoRecordView* vm_view;
     FuriThread* worker;
     volatile bool worker_run;
     char dir_path[VOICE_MEMO_PATH_LEN];

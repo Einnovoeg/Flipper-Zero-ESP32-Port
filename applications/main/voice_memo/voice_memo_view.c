@@ -34,24 +34,17 @@ static void voice_memo_draw(Canvas* canvas, void* ctx) {
     }
     canvas_draw_str(canvas, 44, 10, m->file);
 
-    /* Timer mm:ss (/ total for playback). */
+    /* Timer mm:ss (/ total for playback). Bounded to two digits so the
+     * format always fits (memos are short takes by design). */
     char t[16];
+    unsigned em = (unsigned)((m->elapsed_sec / 60) % 100);
+    unsigned es = (unsigned)(m->elapsed_sec % 60);
     if(m->mode == VoiceMemoViewModePlay && m->total_sec > 0) {
-        snprintf(
-            t,
-            sizeof(t),
-            "%02lu:%02lu/%02lu:%02lu",
-            (unsigned long)(m->elapsed_sec / 60),
-            (unsigned long)(m->elapsed_sec % 60),
-            (unsigned long)(m->total_sec / 60),
-            (unsigned long)(m->total_sec % 60));
+        unsigned tm = (unsigned)((m->total_sec / 60) % 100);
+        unsigned ts = (unsigned)(m->total_sec % 60);
+        snprintf(t, sizeof(t), "%02u:%02u/%02u:%02u", em, es, tm, ts);
     } else {
-        snprintf(
-            t,
-            sizeof(t),
-            "%02lu:%02lu",
-            (unsigned long)(m->elapsed_sec / 60),
-            (unsigned long)(m->elapsed_sec % 60));
+        snprintf(t, sizeof(t), "%02u:%02u", em, es);
     }
     canvas_set_font(canvas, FontPrimary);
     canvas_draw_str(canvas, 2, 26, t);
