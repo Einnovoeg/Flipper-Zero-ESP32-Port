@@ -13,6 +13,7 @@ typedef struct {
     uint32_t pin_fails;
     uint32_t pin_value;
     int64_t time_offset;
+    int32_t timezone_offset_min;
     FuriHalRtcLocaleTimeFormat locale_timeformat;
     FuriHalRtcLocaleDateFormat locale_dateformat;
     FuriHalRtcLocaleUnits locale_units;
@@ -29,6 +30,7 @@ static FuriHalRtcState furi_hal_rtc = {
     .pin_fails = 0,
     .pin_value = 0,
     .time_offset = 0,
+    .timezone_offset_min = 0,
     .locale_timeformat = FuriHalRtcLocaleTimeFormat24h,
     .locale_dateformat = FuriHalRtcLocaleDateFormatDMY,
     .locale_units = FuriHalRtcLocaleUnitsMetric,
@@ -137,12 +139,23 @@ void furi_hal_rtc_set_heap_track_mode(FuriHalRtcHeapTrackMode mode) {
     furi_hal_rtc.heap_track_mode = mode;
 }
 
+void furi_hal_rtc_set_timezone_offset(int32_t minutes) {
+    if(minutes < -720) minutes = -720;
+    if(minutes > 840) minutes = 840;
+    furi_hal_rtc.timezone_offset_min = minutes;
+}
+
+int32_t furi_hal_rtc_get_timezone_offset(void) {
+    return furi_hal_rtc.timezone_offset_min;
+}
+
 void furi_hal_rtc_get_datetime(DateTime* datetime) {
     if(!datetime) {
         return;
     }
 
-    time_t now = furi_hal_rtc_now();
+    time_t now =
+        furi_hal_rtc_now() + (time_t)furi_hal_rtc.timezone_offset_min * 60;
     struct tm now_tm = {0};
     localtime_r(&now, &now_tm);
 
@@ -172,7 +185,10 @@ void furi_hal_rtc_set_datetime(DateTime* datetime) {
 
     const time_t target = mktime(&desired);
     if(target != (time_t)-1) {
-        furi_hal_rtc.time_offset = (int64_t)target - (int64_t)time(NULL);
+        /* User supplies local wall time: convert back to UTC for storage. */
+        furi_hal_rtc.time_offset = (int64_t)target -
+                                   (int64_t)furi_hal_rtc.timezone_offset_min * 60 -
+                                   (int64_t)time(NULL);
     }
 }
 

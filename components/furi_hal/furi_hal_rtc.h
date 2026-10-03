@@ -104,6 +104,13 @@ void furi_hal_rtc_get_datetime(DateTime* datetime);
 void furi_hal_rtc_set_datetime(DateTime* datetime);
 uint32_t furi_hal_rtc_get_timestamp(void);
 
+/** Display timezone offset in minutes east of UTC (e.g. -300 for UTC-5).
+ * The system clock itself always stays on UTC (SNTP, file times); the offset
+ * is applied symmetrically when converting to/from wall-clock DateTime, so
+ * the Clock app, RPC datetime and manual sets all observe local time. */
+void furi_hal_rtc_set_timezone_offset(int32_t minutes);
+int32_t furi_hal_rtc_get_timezone_offset(void);
+
 FuriHalRtcLocaleTimeFormat furi_hal_rtc_get_locale_timeformat(void);
 void furi_hal_rtc_set_locale_timeformat(FuriHalRtcLocaleTimeFormat format);
 FuriHalRtcLocaleDateFormat furi_hal_rtc_get_locale_dateformat(void);
