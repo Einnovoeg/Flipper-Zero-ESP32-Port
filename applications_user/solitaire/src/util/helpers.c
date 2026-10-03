@@ -37,6 +37,8 @@ char* get_basename(const char* path) {
     return (char*)base;
 }
 
-size_t curr_time() {
-    return DWT->CYCCNT;
+size_t curr_time(void) {
+    /* Port: ARM DWT cycle counter doesn't exist on ESP32; FreeRTOS ticks
+     * (1 kHz) serve the same purpose here (srand seed + animation deltas). */
+    return (size_t)furi_get_tick();
 }

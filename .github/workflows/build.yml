@@ -162,7 +162,12 @@ jobs:
           for app in checkers chess flappy_bird minesweeper solitaire 2048 arkanoid \
               t_rex_runner reversi passgen metronome qrcode barcode_gen tone_gen \
               flashlight fmf_to_sub esubghz_chat paint text_viewer hex_viewer \
-              programmer_calculator; do
+              programmer_calculator pinball0 jetpack_joyride tictactoe 4inrow \
+              slots yatzee videopoker simonsays game_of_life scorched_tanks \
+              heap_defence bomberduck yappy_invaders zombiez geometry_flip fmatrix \
+              space_playground color_guess flipbip counter multi_dice atomicdiceroller \
+              caesarcipher rubiks_cube_scrambler voltage_calculator \
+              resistance_calculator multi_converter; do
             echo "=== FAP: $app ==="
             ./buildFap.sh "applications_user/$app" || echo "FAP FAILED: $app (see log above)"
           done

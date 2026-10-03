@@ -338,11 +338,18 @@ build_for_target() {
     #   FAP_EXTRA_CFLAGS="-Wno-incompatible-pointer-types -Wno-int-conversion"
     [ -n "$FAP_EXTRA_CFLAGS" ] && TARGET_CFLAGS+=($FAP_EXTRA_CFLAGS)
 
-    # Generate icon assets from fap_icon_assets if defined in application.fam
+    # Generate icon assets from fap_icon_assets if defined in application.fam.
+    # Fallback for the common fbt convention (no fam declaration): many
+    # upstream apps keep their PNGs in images/, icons/, img/ or assets/.
     local ICON_ASSETS_DIR=""
     if [ -f "$APP_DIR/application.fam" ]; then
         local IAD=$(grep 'fap_icon_assets=' "$APP_DIR/application.fam" | sed 's/.*fap_icon_assets="\([^"]*\)".*/\1/' | head -1)
         [ -n "$IAD" ] && ICON_ASSETS_DIR="$APP_DIR/$IAD"
+    fi
+    if [ -z "$ICON_ASSETS_DIR" ] || [ ! -d "$ICON_ASSETS_DIR" ]; then
+        for cand in images icons img assets; do
+            if [ -d "$APP_DIR/$cand" ]; then ICON_ASSETS_DIR="$APP_DIR/$cand"; break; fi
+        done
     fi
 
     local ICONS_GEN_DIR="$BUILD_DIR/icons"
