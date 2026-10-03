@@ -759,7 +759,11 @@ static void desktop_load_timezone(Storage* storage) {
     storage_file_free(file);
     if(ok) {
         furi_hal_rtc_set_timezone_offset(minutes);
-        FURI_LOG_I(TAG, "Timezone UTC%+d:%02u applied", minutes / 60, (unsigned)(abs(minutes) % 60));
+        FURI_LOG_I(
+            TAG,
+            "Timezone UTC%+d:%02u applied",
+            (int)(minutes / 60),
+            (unsigned)(abs(minutes) % 60));
     }
 }
 
