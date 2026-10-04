@@ -82,6 +82,19 @@ static void lock_screen_style_changed(VariableItem* item) {
     lock_screen_set_style((LockScreenStyle)index);
 }
 
+static void color_theme_changed(VariableItem* item) {
+    uint8_t index = variable_item_get_current_value_index(item);
+    variable_item_set_current_value_text(item, desktop_color_theme_name(index));
+
+    Desktop* desktop = furi_record_open(RECORD_DESKTOP);
+    DesktopSettings* settings = malloc(sizeof(DesktopSettings));
+    desktop_api_get_settings(desktop, settings);
+    settings->displayTheme = index;
+    desktop_api_set_settings(desktop, settings);
+    free(settings);
+    furi_record_close(RECORD_DESKTOP);
+}
+
 static uint32_t interface_settings_exit(void* context) {
     UNUSED(context);
     return VIEW_NONE;
@@ -134,6 +147,14 @@ static InterfaceSettingsApp* interface_settings_alloc(void) {
         value_index_uint32(settings->display_clock, clock_enable_value, CLOCK_ENABLE_COUNT);
     variable_item_set_current_value_index(item, value_index);
     variable_item_set_current_value_text(item, clock_enable_text[value_index]);
+
+    // Color theme: system UI colors (takes effect immediately)
+    if(settings->displayTheme >= DesktopThemeCount) settings->displayTheme = DesktopThemeOrange;
+    item = variable_item_list_add(
+        app->variable_item_list, "Color theme", DesktopThemeCount, color_theme_changed, app);
+    variable_item_set_current_value_index(item, settings->displayTheme);
+    variable_item_set_current_value_text(
+        item, desktop_color_theme_name(settings->displayTheme));
     free(settings);
 
     Gui* gui = furi_record_open(RECORD_GUI);

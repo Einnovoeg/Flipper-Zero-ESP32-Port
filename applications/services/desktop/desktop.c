@@ -432,6 +432,7 @@ static void desktop_apply_settings(Desktop* desktop) {
     desktop->in_transition = true;
 
     desktop_clock_reconfigure(desktop);
+    desktop_settings_apply_theme(&desktop->settings);
 
     // Dummy mode disabled on ESP32 port — always use normal mode
     desktop_main_set_dummy_mode_state(desktop->main_view, false);

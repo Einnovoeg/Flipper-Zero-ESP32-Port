@@ -122,6 +122,7 @@ extern double floor(double);
 #include "environment.h"
 #include "subghz_setting.h"
 #include "subghz_worker.h"
+#include "subghz_tx_rx_worker.h"
 #include "subghz_keystore.h"
 #include "base.h"
 #include "blocks/generic.h"
