@@ -28,6 +28,17 @@ void furi_hal_display_init(void);
  */
 void furi_hal_display_commit(const uint8_t* data, uint32_t size);
 
+/** Publish an RGB565 color framebuffer (w*h pixels, w <= LCD width,
+ * h <= LCD height). While set, commit() blits it centered instead of the
+ * mono framebuffer — the mechanism color apps use to drive the LCD.
+ * Takes effect on the next commit; clear on app exit. Not threadsafe
+ * against concurrent present() swaps — apps should double-buffer.
+ */
+void furi_hal_display_set_color_framebuffer(const uint16_t* buf, uint16_t w, uint16_t h);
+
+/** Release the color framebuffer; mono UI rendering resumes. */
+void furi_hal_display_clear_color_framebuffer(void);
+
 /** Set display backlight brightness
  *
  * @param      brightness  brightness level [0-255]

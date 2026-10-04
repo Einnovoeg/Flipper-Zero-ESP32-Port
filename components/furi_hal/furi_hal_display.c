@@ -287,9 +287,86 @@ void furi_hal_display_init(void) {
              FB_WIDTH, FB_HEIGHT, SCALED_WIDTH, SCALED_HEIGHT, STRIPE_HEIGHT, (int)stripe_bytes);
 }
 
+/* Optional full-color source. When set (non-NULL, valid dims), commit()
+ * blits it centered instead of the mono framebuffer — this is how color apps
+ * (games, video, GIF) drive the LCD while the mono UI stays intact for
+ * everything else. Set from app code, cleared on app exit. The pointer swap
+ * is atomic; apps should double-buffer (draw offscreen, swap, request a
+ * redraw) to avoid tearing. */
+static const uint16_t* color_fb = NULL;
+static uint16_t color_fb_w = 0;
+static uint16_t color_fb_h = 0;
+
+void furi_hal_display_set_color_framebuffer(const uint16_t* buf, uint16_t w, uint16_t h) {
+    if(buf && w > 0 && h > 0 && w <= LCD_H_RES && h <= LCD_V_RES) {
+        color_fb = buf;
+        color_fb_w = w;
+        color_fb_h = h;
+    }
+}
+
+void furi_hal_display_clear_color_framebuffer(void) {
+    color_fb = NULL;
+    color_fb_w = 0;
+    color_fb_h = 0;
+}
+
+static void furi_hal_display_commit_color(void) {
+    const uint16_t w = color_fb_w;
+    const uint16_t h = color_fb_h;
+    const size_t ox = (LCD_H_RES - w) / 2;
+    const size_t oy = (LCD_V_RES - h) / 2;
+
+    furi_hal_spi_bus_lock();
+
+    /* Letterbox with the theme background color. */
+    if(oy > 0) {
+        display_paint_rect(0, 0, LCD_H_RES, oy, bg_color);
+        display_paint_rect(0, oy + h, LCD_H_RES, LCD_V_RES - oy - h, bg_color);
+    }
+    if(ox > 0) {
+        display_paint_rect(0, oy, ox, h, bg_color);
+        display_paint_rect(ox + w, oy, LCD_H_RES - ox - w, h, bg_color);
+    }
+
+    /* Stream the color frame in stripes (same DMA-friendly pattern). */
+    for(size_t stripe_y = 0; stripe_y < h; stripe_y += STRIPE_HEIGHT) {
+        size_t stripe_h = STRIPE_HEIGHT;
+        if(stripe_y + stripe_h > h) stripe_h = h - stripe_y;
+
+        for(size_t row = 0; row < stripe_h; row++) {
+            const uint16_t* src = &color_fb[(stripe_y + row) * w];
+            /* Packed tightly: the DMA block must be contiguous w×stripe_h
+             * pixels (buffer rows are LCD_H_RES wide, w fits by the check in
+             * set_color_framebuffer). */
+            uint16_t* dst = &rgb565_buf[row * w];
+            memcpy(dst, src, w * sizeof(uint16_t));
+        }
+
+        furi_hal_display_prepare_flush();
+        esp_lcd_panel_draw_bitmap(
+            panel_handle, ox, oy + stripe_y, ox + w, oy + stripe_y + stripe_h, rgb565_buf);
+        furi_hal_display_wait_flush();
+    }
+
+    furi_hal_spi_bus_unlock();
+}
+
 void furi_hal_display_commit(const uint8_t* data, uint32_t size) {
     UNUSED(size);
-    if(!panel_handle || !rgb565_buf || !data) return;
+    if(!panel_handle || !rgb565_buf) return;
+
+    if(color_fb && color_fb_w > 0 && color_fb_h > 0) {
+        if(!data) {
+            /* No mono frame (color-only commit) — still service the blit. */
+            furi_hal_display_commit_color();
+            return;
+        }
+        /* Both present: color wins while an app owns the screen. */
+        furi_hal_display_commit_color();
+        return;
+    }
+    if(!data) return;
 
     /*
      * Stripe-based rendering: render STRIPE_HEIGHT lines into the small DMA
