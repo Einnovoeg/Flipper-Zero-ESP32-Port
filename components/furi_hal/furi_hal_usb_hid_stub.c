@@ -88,6 +88,26 @@ bool furi_hal_hid_consumer_key_release_all(void) {
     return false;
 }
 
+bool furi_hal_hid_gamepad_press(uint8_t button) {
+    (void)button;
+    return false;
+}
+
+bool furi_hal_hid_gamepad_release(uint8_t button) {
+    (void)button;
+    return false;
+}
+
+bool furi_hal_hid_gamepad_release_all(void) {
+    return false;
+}
+
+bool furi_hal_hid_gamepad_move(int8_t x, int8_t y) {
+    (void)x;
+    (void)y;
+    return false;
+}
+
 /* No-op TinyUSB composite / USB-Serial-JTAG shims for SoCs without USB-OTG.
  * furi_hal_usb_tinyusb_composite.c is only built for esp32s3/esp32s2
  * (see CMakeLists), but furi_hal_usb.c, desktop and qflipper_usj_cmd call

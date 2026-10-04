@@ -279,6 +279,51 @@ bool furi_hal_hid_consumer_key_release(uint16_t button);
  */
 bool furi_hal_hid_consumer_key_release_all(void);
 
+/** Gamepad buttons (1-32), standard layout: 1=A/Cross, 2=B/Circle, 3=X/Square,
+ * 4=Y/Triangle, 5=LB, 6=RB, 7=Back/Select, 8=Start, 9=L3, 10=R3, 11=D-Up,
+ * 12=D-Down, 13=D-Left, 14=D-Right, 15=Home, 16+=vendor. */
+enum HidGamepadButtons {
+    HidGamepadA = 1,
+    HidGamepadB = 2,
+    HidGamepadX = 3,
+    HidGamepadY = 4,
+    HidGamepadLB = 5,
+    HidGamepadRB = 6,
+    HidGamepadBack = 7,
+    HidGamepadStart = 8,
+    HidGamepadL3 = 9,
+    HidGamepadR3 = 10,
+    HidGamepadUp = 11,
+    HidGamepadDown = 12,
+    HidGamepadLeft = 13,
+    HidGamepadRight = 14,
+    HidGamepadHome = 15,
+};
+
+/** Press a gamepad button (1-32) and send HID report
+ *
+ * @param      button  button number
+ */
+bool furi_hal_hid_gamepad_press(uint8_t button);
+
+/** Release a gamepad button (1-32) and send HID report
+ *
+ * @param      button  button number
+ */
+bool furi_hal_hid_gamepad_release(uint8_t button);
+
+/** Release all gamepad buttons, center sticks, and send HID report
+ *
+ */
+bool furi_hal_hid_gamepad_release_all(void);
+
+/** Move the gamepad left stick (-127..127) and send HID report
+ *
+ * @param      x  X axis
+ * @param      y  Y axis
+ */
+bool furi_hal_hid_gamepad_move(int8_t x, int8_t y);
+
 #ifdef __cplusplus
 }
 #endif

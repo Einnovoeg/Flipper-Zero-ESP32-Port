@@ -45,6 +45,11 @@ bool ble_profile_hid_mouse_release(FuriHalBleProfileBase* profile, uint8_t butto
 bool ble_profile_hid_mouse_release_all(FuriHalBleProfileBase* profile);
 bool ble_profile_hid_mouse_scroll(FuriHalBleProfileBase* profile, int8_t delta);
 
+bool ble_profile_hid_gamepad_press(FuriHalBleProfileBase* profile, uint8_t button);
+bool ble_profile_hid_gamepad_release(FuriHalBleProfileBase* profile, uint8_t button);
+bool ble_profile_hid_gamepad_release_all(FuriHalBleProfileBase* profile);
+bool ble_profile_hid_gamepad_move(FuriHalBleProfileBase* profile, int8_t x, int8_t y);
+
 #ifdef __cplusplus
 }
 #endif

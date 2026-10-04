@@ -304,6 +304,19 @@ void view_dispatcher_handle_input(ViewDispatcher* view_dispatcher, InputEvent* e
                 // Switch to returned view
                 view_dispatcher_switch_to_view(view_dispatcher, view_id);
             } else if(view_dispatcher->navigation_event_callback) {
+                if(event->type == InputTypeLong) {
+                    // Hold BACK = go home: drain the scene stack through the
+                    // same Back contract as repeated short presses, then exit
+                    // the app. Bounded so a callback that never reports an
+                    // empty stack cannot spin forever.
+                    uint8_t drain = 0;
+                    while(drain++ < 32 &&
+                          view_dispatcher->navigation_event_callback(
+                              view_dispatcher->event_context)) {
+                    }
+                    view_dispatcher_stop(view_dispatcher);
+                    return;
+                }
                 // Dispatch navigation event
                 if(!view_dispatcher->navigation_event_callback(view_dispatcher->event_context)) {
                     view_dispatcher_stop(view_dispatcher);

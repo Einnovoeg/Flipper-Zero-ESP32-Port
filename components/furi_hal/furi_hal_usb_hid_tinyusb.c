@@ -15,6 +15,7 @@
 #define REPORT_ID_KEYBOARD 1
 #define REPORT_ID_MOUSE    2
 #define REPORT_ID_CONSUMER 3
+#define REPORT_ID_GAMEPAD  4
 
 #define HID_EP_IN       0x81
 #define HID_EP_BUF_SIZE 16
@@ -24,6 +25,7 @@ static const uint8_t hid_report_descriptor[] = {
     TUD_HID_REPORT_DESC_KEYBOARD(HID_REPORT_ID(REPORT_ID_KEYBOARD)),
     TUD_HID_REPORT_DESC_MOUSE(HID_REPORT_ID(REPORT_ID_MOUSE)),
     TUD_HID_REPORT_DESC_CONSUMER(HID_REPORT_ID(REPORT_ID_CONSUMER)),
+    TUD_HID_REPORT_DESC_GAMEPAD(HID_REPORT_ID(REPORT_ID_GAMEPAD)),
 };
 
 #define HID_CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_HID_DESC_LEN)
@@ -70,7 +72,17 @@ typedef struct {
     uint8_t keys[HID_KB_MAX_KEYS];
     uint8_t mouse_buttons;
     uint16_t consumer[HID_CONSUMER_MAX_KEYS];
+    uint32_t gamepad_buttons;
+    int8_t gamepad_x;
+    int8_t gamepad_y;
 } HidState;
+
+/* TUD_HID_REPORT_DESC_GAMEPAD layout: int8 X, int8 Y, 32 button bits. */
+typedef struct __attribute__((packed)) {
+    int8_t x;
+    int8_t y;
+    uint32_t buttons;
+} HidGamepadReport;
 
 static HidState s_state = {0};
 static FuriMutex* s_state_mutex = NULL;
@@ -93,6 +105,9 @@ static void hid_publish_mount(bool mounted) {
         s_state.modifiers = 0;
         s_state.mouse_buttons = 0;
         s_state.led_state = 0;
+        s_state.gamepad_buttons = 0;
+        s_state.gamepad_x = 0;
+        s_state.gamepad_y = 0;
     }
     if(s_user_cb) s_user_cb(mounted, s_user_ctx);
 }
@@ -425,6 +440,53 @@ bool furi_hal_hid_consumer_key_release_all(void) {
     hid_state_lock();
     memset(s_state.consumer, 0, sizeof(s_state.consumer));
     bool result = send_consumer_report_locked();
+    hid_state_unlock();
+    return result;
+}
+
+static bool send_gamepad_report_locked(void) {
+    if(!hid_wait_tx_ready_locked()) return false;
+    HidGamepadReport rep = {
+        .x = s_state.gamepad_x,
+        .y = s_state.gamepad_y,
+        .buttons = s_state.gamepad_buttons,
+    };
+    return tud_hid_report(REPORT_ID_GAMEPAD, &rep, sizeof(rep));
+}
+
+bool furi_hal_hid_gamepad_press(uint8_t button) {
+    if(button == 0 || button > 32) return false;
+    hid_state_lock();
+    s_state.gamepad_buttons |= (uint32_t)1 << (button - 1);
+    bool result = send_gamepad_report_locked();
+    hid_state_unlock();
+    return result;
+}
+
+bool furi_hal_hid_gamepad_release(uint8_t button) {
+    if(button == 0 || button > 32) return false;
+    hid_state_lock();
+    s_state.gamepad_buttons &= ~((uint32_t)1 << (button - 1));
+    bool result = send_gamepad_report_locked();
+    hid_state_unlock();
+    return result;
+}
+
+bool furi_hal_hid_gamepad_release_all(void) {
+    hid_state_lock();
+    s_state.gamepad_buttons = 0;
+    s_state.gamepad_x = 0;
+    s_state.gamepad_y = 0;
+    bool result = send_gamepad_report_locked();
+    hid_state_unlock();
+    return result;
+}
+
+bool furi_hal_hid_gamepad_move(int8_t x, int8_t y) {
+    hid_state_lock();
+    s_state.gamepad_x = x;
+    s_state.gamepad_y = y;
+    bool result = send_gamepad_report_locked();
     hid_state_unlock();
     return result;
 }

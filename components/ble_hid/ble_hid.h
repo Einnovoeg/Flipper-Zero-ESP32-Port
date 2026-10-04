@@ -52,6 +52,11 @@ bool ble_hid_consumer_press(BleHid* ble_hid, uint16_t button);
 bool ble_hid_consumer_release(BleHid* ble_hid, uint16_t button);
 bool ble_hid_consumer_release_all(BleHid* ble_hid);
 
+bool ble_hid_gamepad_press(BleHid* ble_hid, uint8_t button);
+bool ble_hid_gamepad_release(BleHid* ble_hid, uint8_t button);
+bool ble_hid_gamepad_release_all(BleHid* ble_hid);
+bool ble_hid_gamepad_move(BleHid* ble_hid, int8_t x, int8_t y);
+
 uint8_t ble_hid_get_led_state(BleHid* ble_hid);
 
 bool ble_hid_start_advertising(void);

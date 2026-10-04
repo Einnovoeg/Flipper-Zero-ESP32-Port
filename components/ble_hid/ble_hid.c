@@ -25,6 +25,7 @@
 #define BLE_HID_REPORT_ID_KEYBOARD 1
 #define BLE_HID_REPORT_ID_MOUSE    2
 #define BLE_HID_REPORT_ID_CONSUMER 3
+#define BLE_HID_REPORT_ID_GAMEPAD  4
 #define BLE_HID_SERVICE_UUID       0x1812
 #define BLE_HID_ADV_TYPE_FLAGS     0x01
 #define BLE_HID_ADV_TYPE_UUID16    0x03
@@ -50,6 +51,12 @@ typedef struct {
     uint16_t key;
 } __attribute__((packed)) BleHidConsumerReport;
 
+typedef struct {
+    int8_t x;
+    int8_t y;
+    uint32_t buttons;
+} __attribute__((packed)) BleHidGamepadReport;
+
 struct BleHid {
     esp_hidd_dev_t* dev;
     BleHidConfig config;
@@ -59,6 +66,7 @@ struct BleHid {
     BleHidKeyboardReport keyboard_report;
     BleHidMouseReport mouse_report;
     BleHidConsumerReport consumer_report;
+    BleHidGamepadReport gamepad_report;
     uint8_t led_state;
     bool connected;
 };
@@ -161,6 +169,26 @@ static const uint8_t ble_hid_report_map[] = {
     0x95, 0x01,
     0x75, 0x10,
     0x81, 0x00,
+    0xC0,
+    0x05, 0x01,
+    0x09, 0x05,
+    0xA1, 0x01,
+    0x85, BLE_HID_REPORT_ID_GAMEPAD,
+    0x09, 0x30,
+    0x09, 0x31,
+    0x15, 0x81,
+    0x25, 0x7F,
+    0x75, 0x08,
+    0x95, 0x02,
+    0x81, 0x02,
+    0x05, 0x09,
+    0x19, 0x01,
+    0x29, 0x20,
+    0x15, 0x00,
+    0x25, 0x01,
+    0x75, 0x01,
+    0x95, 0x20,
+    0x81, 0x02,
     0xC0,
 };
 
@@ -916,6 +944,73 @@ bool ble_hid_mouse_scroll(BleHid* ble_hid, int8_t delta) {
     bool result = ble_hid_send_report(
         ble_hid, BLE_HID_REPORT_ID_MOUSE, &ble_hid->mouse_report, sizeof(ble_hid->mouse_report));
     ble_hid->mouse_report.wheel = 0;
+    ble_hid_unlock(ble_hid);
+    return result;
+}
+
+bool ble_hid_gamepad_press(BleHid* ble_hid, uint8_t button) {
+    if(!ble_hid) {
+        return false;
+    }
+    if(button == 0 || button > 32) return false;
+
+    ble_hid_lock(ble_hid);
+    ble_hid->gamepad_report.buttons |= (uint32_t)1 << (button - 1);
+    bool result = ble_hid_send_report(
+        ble_hid,
+        BLE_HID_REPORT_ID_GAMEPAD,
+        &ble_hid->gamepad_report,
+        sizeof(ble_hid->gamepad_report));
+    ble_hid_unlock(ble_hid);
+    return result;
+}
+
+bool ble_hid_gamepad_release(BleHid* ble_hid, uint8_t button) {
+    if(!ble_hid) {
+        return false;
+    }
+    if(button == 0 || button > 32) return false;
+
+    ble_hid_lock(ble_hid);
+    ble_hid->gamepad_report.buttons &= ~((uint32_t)1 << (button - 1));
+    bool result = ble_hid_send_report(
+        ble_hid,
+        BLE_HID_REPORT_ID_GAMEPAD,
+        &ble_hid->gamepad_report,
+        sizeof(ble_hid->gamepad_report));
+    ble_hid_unlock(ble_hid);
+    return result;
+}
+
+bool ble_hid_gamepad_release_all(BleHid* ble_hid) {
+    if(!ble_hid) {
+        return false;
+    }
+
+    ble_hid_lock(ble_hid);
+    memset(&ble_hid->gamepad_report, 0, sizeof(ble_hid->gamepad_report));
+    bool result = ble_hid_send_report(
+        ble_hid,
+        BLE_HID_REPORT_ID_GAMEPAD,
+        &ble_hid->gamepad_report,
+        sizeof(ble_hid->gamepad_report));
+    ble_hid_unlock(ble_hid);
+    return result;
+}
+
+bool ble_hid_gamepad_move(BleHid* ble_hid, int8_t x, int8_t y) {
+    if(!ble_hid) {
+        return false;
+    }
+
+    ble_hid_lock(ble_hid);
+    ble_hid->gamepad_report.x = x;
+    ble_hid->gamepad_report.y = y;
+    bool result = ble_hid_send_report(
+        ble_hid,
+        BLE_HID_REPORT_ID_GAMEPAD,
+        &ble_hid->gamepad_report,
+        sizeof(ble_hid->gamepad_report));
     ble_hid_unlock(ble_hid);
     return result;
 }
