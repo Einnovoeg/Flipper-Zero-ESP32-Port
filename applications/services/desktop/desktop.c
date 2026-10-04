@@ -1,6 +1,7 @@
 #include "desktop_i.h"
 
 #include <string.h>
+#include <stdlib.h>
 #include <esp_heap_caps.h>
 
 #include <cli/cli_vcp.h>
@@ -736,6 +737,36 @@ void desktop_api_set_settings(Desktop* instance, const DesktopSettings* settings
  * Application thread
  */
 
+/** Display timezone persistence: /int/.timezone holds whole minutes east of
+ * UTC as plain text (e.g. "-300"). Applied at every boot so the Clock app,
+ * RPC datetime and manual sets observe local time while the system clock
+ * itself stays on UTC (SNTP, file times). Missing/unreadable file = UTC. */
+#define DESKTOP_TIMEZONE_PATH "/int/.timezone"
+
+static void desktop_load_timezone(Storage* storage) {
+    File* file = storage_file_alloc(storage);
+    int32_t minutes = 0;
+    bool ok = false;
+    if(storage_file_open(file, DESKTOP_TIMEZONE_PATH, FSAM_READ, FSOM_OPEN_EXISTING)) {
+        char buf[16] = {0};
+        size_t n = storage_file_read(file, buf, sizeof(buf) - 1);
+        storage_file_close(file);
+        if(n > 0) {
+            minutes = (int32_t)strtol(buf, NULL, 10);
+            ok = true;
+        }
+    }
+    storage_file_free(file);
+    if(ok) {
+        furi_hal_rtc_set_timezone_offset(minutes);
+        FURI_LOG_I(
+            TAG,
+            "Timezone UTC%+d:%02u applied",
+            (int)(minutes / 60),
+            (unsigned)(abs(minutes) % 60));
+    }
+}
+
 int32_t desktop_srv(void* p) {
     UNUSED(p);
 
@@ -747,6 +778,8 @@ int32_t desktop_srv(void* p) {
     }
 
     Desktop* desktop = desktop_alloc();
+
+    desktop_load_timezone(desktop->storage);
 
     desktop_init_settings(desktop);
 

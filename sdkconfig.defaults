@@ -33,6 +33,14 @@ CONFIG_LOG_DEFAULT_LEVEL=3
 # Task watchdog
 CONFIG_ESP_TASK_WDT_TIMEOUT_S=10
 
+# Crash diagnostics: store Guru panics to the coredump flash partition
+# (0xbf0000, already in the partition tables) as ELF for post-mortem with
+# espcoredump.py + the matching furi_esp32.elf (shipped in CI artifacts).
+CONFIG_ESP_COREDUMP_ENABLE=y
+CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH=y
+CONFIG_ESP_COREDUMP_DATA_FORMAT_ELF=y
+CONFIG_ESP_COREDUMP_CHECKSUM_CRC=y
+
 # System
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
 

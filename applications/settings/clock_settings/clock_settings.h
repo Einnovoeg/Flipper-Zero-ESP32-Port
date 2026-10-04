@@ -20,12 +20,17 @@ struct ClockSettings {
     ViewDispatcher* view_dispatcher;
     SceneManager* scene_manager;
     ClockSettingsModule* pwm_view;
+    Submenu* submenu;
 };
 
 typedef enum {
     ClockSettingsViewPwm,
+    ClockSettingsViewSubmenu,
 } ClockSettingsView;
 
 typedef enum {
     ClockSettingsCustomEventNone,
+    ClockSettingsCustomEventPwm,
+    ClockSettingsCustomEventTimezone,
+    ClockSettingsCustomEventTimezoneSaved,
 } ClockSettingsCustomEvent;

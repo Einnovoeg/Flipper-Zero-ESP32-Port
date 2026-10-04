@@ -39,6 +39,12 @@ struct AnimationManager {
     OneShotView* one_shot_view;
     FuriTimer* idle_animation_timer;
     StorageAnimation* current_animation;
+    /* Previously shown animation, freed only when the *next* switch happens.
+     * The GUI thread may still be rendering the old frames while a switch
+     * runs on the timer/pubsub thread — freeing immediately is a
+     * use-after-free race (LoadProhibited shortly after "Select ..."). At
+     * most one retired animation is ever held, so memory stays bounded. */
+    StorageAnimation* retired_animation;
     AnimationManagerInteractCallback interact_callback;
     AnimationManagerSetNewIdleAnimationCallback new_idle_callback;
     AnimationManagerSetNewIdleAnimationCallback check_blocking_callback;
@@ -296,13 +302,19 @@ static void animation_manager_replace_current_animation(
     FURI_LOG_I(TAG, "Select \'%s\' animation", new_name);
     animation_manager->current_animation = storage_animation;
 
-    if(previous_animation) {
-        animation_storage_free_storage_animation(&previous_animation);
+    /* Retire instead of freeing: the GUI thread may still reference the old
+     * frames. The retired slot is freed on the next switch (or manager free)
+     * by which point no render can still point at it. */
+    if(animation_manager->retired_animation) {
+        animation_storage_free_storage_animation(&animation_manager->retired_animation);
     }
+    animation_manager->retired_animation = previous_animation;
 }
 
 AnimationManager* animation_manager_alloc(void) {
     AnimationManager* animation_manager = malloc(sizeof(AnimationManager));
+    animation_manager->current_animation = NULL;
+    animation_manager->retired_animation = NULL;
     animation_manager->animation_view = bubble_animation_view_alloc();
     animation_manager->view_stack = view_stack_alloc();
     View* animation_view = bubble_animation_get_view(animation_manager->animation_view);
@@ -346,6 +358,9 @@ void animation_manager_free(AnimationManager* animation_manager) {
     furi_record_close(RECORD_STORAGE);
 
     furi_string_free(animation_manager->freezed_animation_name);
+    if(animation_manager->retired_animation) {
+        animation_storage_free_storage_animation(&animation_manager->retired_animation);
+    }
     View* animation_view = bubble_animation_get_view(animation_manager->animation_view);
     view_stack_remove_view(animation_manager->view_stack, animation_view);
     bubble_animation_view_free(animation_manager->animation_view);

@@ -35,6 +35,9 @@ ClockSettings* clock_settings_alloc() {
         clock_settings_module_alloc(view_dispatcher_get_event_loop(app->view_dispatcher));
     view_dispatcher_add_view(
         app->view_dispatcher, ClockSettingsViewPwm, clock_settings_module_get_view(app->pwm_view));
+    app->submenu = submenu_alloc();
+    view_dispatcher_add_view(
+        app->view_dispatcher, ClockSettingsViewSubmenu, submenu_get_view(app->submenu));
 
     scene_manager_next_scene(app->scene_manager, ClockSettingsSceneStart);
 
@@ -46,8 +49,10 @@ void clock_settings_free(ClockSettings* app) {
 
     // Views
     view_dispatcher_remove_view(app->view_dispatcher, ClockSettingsViewPwm);
+    view_dispatcher_remove_view(app->view_dispatcher, ClockSettingsViewSubmenu);
 
     clock_settings_module_free(app->pwm_view);
+    submenu_free(app->submenu);
 
     // View dispatcher
     view_dispatcher_free(app->view_dispatcher);
