@@ -171,6 +171,13 @@ void canvas_invert_color(Canvas* canvas);
  */
 void canvas_set_font(Canvas* canvas, Font font);
 
+/** Set a custom u8g2 font (e.g. app-bundled icon fonts).
+ *
+ * @param      canvas  Canvas instance
+ * @param      font    u8g2 font data
+ */
+void canvas_set_custom_u8g2_font(Canvas* canvas, const uint8_t* font);
+
 /** Set custom drawing font
  *
  * @param      canvas  Canvas instance

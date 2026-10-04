@@ -158,6 +158,7 @@ jobs:
         continue-on-error: true
         run: |
           source ~/esp/esp-idf/export.sh
+          pip install -q pillow
           mkdir -p artifact_staging/faps
           for app in checkers chess flappy_bird minesweeper solitaire 2048 arkanoid \
               t_rex_runner reversi passgen metronome qrcode barcode_gen tone_gen \
@@ -167,7 +168,8 @@ jobs:
               heap_defence bomberduck yappy_invaders zombiez geometry_flip fmatrix \
               space_playground color_guess flipbip counter multi_dice atomicdiceroller \
               caesarcipher rubiks_cube_scrambler voltage_calculator \
-              resistance_calculator multi_converter; do
+              resistance_calculator multi_converter image_viewer quadrastic \
+              tanks portal_of_flipper nfc_login; do
             echo "=== FAP: $app ==="
             ./buildFap.sh "applications_user/$app" || echo "FAP FAILED: $app (see log above)"
           done

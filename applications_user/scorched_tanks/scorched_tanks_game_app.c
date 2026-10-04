@@ -470,7 +470,7 @@ static void scorched_tanks_fire(Game* game_state) {
 
 int32_t scorched_tanks_game_app(void* p) {
     UNUSED(p);
-    srand(DWT->CYCCNT);
+    srand((unsigned)furi_get_tick()); /* Port: no ARM DWT counter on ESP32 */
 
     FuriMessageQueue* event_queue = furi_message_queue_alloc(8, sizeof(ScorchedTanksEvent));
 

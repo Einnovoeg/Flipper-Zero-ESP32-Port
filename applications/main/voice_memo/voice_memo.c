@@ -172,7 +172,7 @@ static int32_t voice_memo_record_thread(void* ctx) {
         File* f = storage_file_alloc(st);
         storage_common_remove(st, app->file_path);
         storage_file_free(f);
-        furi_record_close(st);
+        furi_record_close(RECORD_STORAGE);
     }
     view_dispatcher_send_custom_event(app->dispatcher, VOICE_MEMO_EV_STOP);
     return 0;
