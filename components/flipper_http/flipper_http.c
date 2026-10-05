@@ -334,7 +334,7 @@ static bool fhttp_perform(
         fhttp_respond("[ERROR] GET request failed or returned empty data.");
         return false;
     }
-    esp_http_method_t http_method = HTTP_METHOD_GET;
+    esp_http_client_method_t http_method = HTTP_METHOD_GET;
     if(method) {
         if(strcasecmp(method, "POST") == 0) http_method = HTTP_METHOD_POST;
         else if(strcasecmp(method, "PUT") == 0)
