@@ -21,6 +21,7 @@
 #include <storage/storage.h>
 
 #include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 
 #define FHTTP_TAG "FlipperHTTP"
@@ -333,7 +334,15 @@ static bool fhttp_perform(
         fhttp_respond("[ERROR] GET request failed or returned empty data.");
         return false;
     }
-    esp_http_client_set_method(client, method ? method : "GET");
+    esp_http_method_t http_method = HTTP_METHOD_GET;
+    if(method) {
+        if(strcasecmp(method, "POST") == 0) http_method = HTTP_METHOD_POST;
+        else if(strcasecmp(method, "PUT") == 0)
+            http_method = HTTP_METHOD_PUT;
+        else if(strcasecmp(method, "DELETE") == 0)
+            http_method = HTTP_METHOD_DELETE;
+    }
+    esp_http_client_set_method(client, http_method);
     fhttp_apply_headers(client, headers);
     if(payload) esp_http_client_set_post_field(client, payload, strlen(payload));
 
