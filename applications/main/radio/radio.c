@@ -23,7 +23,10 @@ static const RadioStation radio_default_stations[] = {
     {"Metal Detector", "http://ice1.somafm.com/metal-128-mp3"},
 };
 
-static void radio_menu_callback(void* context, uint32_t index);
+static void radio_menu_callback(void* context, uint32_t index) {
+    RadioApp* app = context;
+    view_dispatcher_send_custom_event(app->dispatcher, index);
+}
 
 static void radio_rebuild_menu(RadioApp* app, const char* status) {
     submenu_reset(app->submenu);
