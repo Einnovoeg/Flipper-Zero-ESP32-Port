@@ -9,6 +9,9 @@
  *   network, mirroring the board's save-then-connect flow.
  */
 
+#include <furi.h>
+#include <gui/view_dispatcher.h>
+
 #include "flipper_http/flipper_http.h"
 #include "jsmn/jsmn.h"
 

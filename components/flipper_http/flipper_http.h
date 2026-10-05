@@ -17,13 +17,20 @@
  * false with a log line.
  */
 
-#include <gui/gui.h>
-#include <gui/view.h>
-#include <gui/view_dispatcher.h>
-#include <gui/modules/loading.h>
-#include <furi.h>
-#include <furi_hal.h>
-#include <storage/storage.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+/* Intentionally dependency-free: this header is included FIRST by apps (even
+ * before furi.h), so it must not pull project headers that could interact
+ * with the toolchain headers (this broke the build once via memmgr.h).
+ * Full types live in the .c, which includes the real headers. */
+typedef struct ViewDispatcher ViewDispatcher;
+typedef struct FuriThread FuriThread;
+typedef void* FuriThreadId;
+typedef struct FuriTimer FuriTimer;
+typedef struct FuriStreamBuffer FuriStreamBuffer;
+typedef struct FuriString FuriString;
 
 #ifdef __cplusplus
 extern "C" {
