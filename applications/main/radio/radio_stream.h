@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef struct RadioApp RadioApp;
+#include "radio.h"
 
 /* Blocking stream worker: connects, decodes MP3 frames and pushes PCM until
  * stopped, error, or stream end. Runs on its own thread; reports progress

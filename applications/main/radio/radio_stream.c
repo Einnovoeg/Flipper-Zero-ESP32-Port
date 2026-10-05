@@ -119,10 +119,9 @@ bool radio_stream_play(RadioApp* app, const char* url) {
     /* ICY metadata interval from response headers. */
     RadioStream st = {0};
     st.app = app;
-    char interval_buf[16] = {0};
-    if(esp_http_client_get_header(client, "icy-metaint", interval_buf, sizeof(interval_buf)) ==
-       ESP_OK) {
-        st.icy_interval = atoi(interval_buf);
+    char* icy_value = NULL;
+    if(esp_http_client_get_header(client, "icy-metaint", &icy_value) == ESP_OK && icy_value) {
+        st.icy_interval = atoi(icy_value);
         st.icy_countdown = st.icy_interval;
         FURI_LOG_I(TAG, "ICY metadata every %d bytes", st.icy_interval);
     }

@@ -32,7 +32,7 @@ typedef struct {
     char url[RADIO_URL_LEN];
 } RadioStation;
 
-typedef struct {
+typedef struct RadioApp {
     Gui* gui;
     ViewDispatcher* dispatcher;
     Submenu* submenu;
