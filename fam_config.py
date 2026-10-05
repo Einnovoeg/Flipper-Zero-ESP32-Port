@@ -51,6 +51,7 @@ APPS = [
     "ota_updater",
     "streaming",
     "voice_memo",
+    "radio",
     "nrf24",
     "ble_spam",
     "js_app",

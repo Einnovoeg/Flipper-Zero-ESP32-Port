@@ -1,0 +1,10 @@
+App(
+    appid="radio",
+    name="Radio",
+    apptype=FlipperAppType.MENUEXTERNAL,
+    entry_point="radio_app",
+    icon="A_Streaming_14",
+    stack_size=4 * 1024,
+    order=83,
+    fap_category="Tools",
+)

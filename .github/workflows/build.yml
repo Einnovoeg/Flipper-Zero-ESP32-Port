@@ -173,7 +173,8 @@ jobs:
               space_playground color_guess flipbip counter multi_dice atomicdiceroller \
               caesarcipher rubiks_cube_scrambler voltage_calculator \
               resistance_calculator multi_converter image_viewer quadrastic \
-              tanks nfc_login; do
+              tanks nfc_login flip_library flip_weather flip_social flip_trader \
+              flip_telegram flip_map flip_downloader ifttt; do
             echo "=== FAP: $app ==="
             ./buildFap.sh "applications_user/$app" || echo "FAP FAILED: $app (see log above)"
           done
