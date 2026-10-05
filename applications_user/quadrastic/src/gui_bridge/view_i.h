@@ -22,6 +22,7 @@
 
 #pragma once
 
+#include <furi.h>
 #include <gui/view.h>
 
 typedef struct

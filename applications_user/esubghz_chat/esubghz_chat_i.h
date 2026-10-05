@@ -1,8 +1,8 @@
 #pragma once
 
 #include <furi.h>
-#include "ui_hacks_for_no_reason/view_dispatcher_i.h"
-#include "ui_hacks_for_no_reason/view_port_i.h"
+/* Port: dropped ui_hacks_for_no_reason/* (unused OFW-internal struct copies;
+ * they collide with the Xtensa toolchain headers and nothing uses them). */
 #include <gui/scene_manager.h>
 #include <gui/modules/byte_input.h>
 #include <gui/modules/dialog_ex.h>

@@ -1,6 +1,7 @@
 // by @xMasterX
 
 #include <furi.h>
+#include <furi_hal_light.h>
 #include <furi_hal_power.h>
 #include <gui/gui.h>
 #include <input/input.h>
@@ -57,14 +58,13 @@ static void input_callback(InputEvent* input_event, void* ctx) {
 }
 
 static void flash_toggle(PluginState* const plugin_state) {
-    furi_hal_gpio_write(&gpio_ext_pc3, false);
-    furi_hal_gpio_init(&gpio_ext_pc3, GpioModeOutputPushPull, GpioPullNo, GpioSpeedVeryHigh);
-
+    /* Port: no external GPIO pin on ESP32; the flashlight drives the LCD
+     * backlight to full instead (visible light source on T-Embed). */
     if(plugin_state->is_on) {
-        furi_hal_gpio_write(&gpio_ext_pc3, false);
+        furi_hal_light_set(LightBacklight, 0x00);
         plugin_state->is_on = false;
     } else {
-        furi_hal_gpio_write(&gpio_ext_pc3, true);
+        furi_hal_light_set(LightBacklight, 0xFF);
         plugin_state->is_on = true;
     }
 }

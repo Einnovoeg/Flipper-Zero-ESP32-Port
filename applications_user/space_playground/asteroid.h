@@ -19,14 +19,14 @@ typedef struct Asteroid {
     Vec2 p;
     Vec2 v;
     bool active;
-    List trail;
+    SpgList trail;
 } Asteroid;
 
-List asteroids;
+SpgList asteroids;
 
 void asteroid_free(Asteroid* a) {
     if(a) {
-        ListNode* node = a->trail.head;
+        SpgListNode* node = a->trail.head;
         while(node) {
             Vec2* point = (Vec2*)node->data;
             free_vec2(point);
@@ -38,7 +38,7 @@ void asteroid_free(Asteroid* a) {
 }
 
 void asteroid_clear() {
-    ListNode* node = asteroids.head;
+    SpgListNode* node = asteroids.head;
     while(node) {
         Asteroid* a = (Asteroid*)node->data;
         asteroid_free(a);
@@ -108,7 +108,7 @@ void asteroid_update_asteroids(double dt) {
         asteroid_create(x, y, vx, vy);
     }
 
-    ListNode* node = asteroids.head;
+    SpgListNode* node = asteroids.head;
     while(node) {
         Asteroid* a = (Asteroid*)node->data;
 
@@ -119,7 +119,7 @@ void asteroid_update_asteroids(double dt) {
                 continue;
             }
 
-            for(ListNode* other_node = asteroids.head; other_node != NULL;
+            for(SpgListNode* other_node = asteroids.head; other_node != NULL;
                 other_node = other_node->next) {
                 if(other_node == node) continue; // Skip self
 
@@ -162,7 +162,7 @@ void asteroid_update_asteroids(double dt) {
 
             if(a->trail.size > settings.trail_duration * 60) {
                 // Remove oldest point if trail exceeds max length
-                ListNode* tail_node = a->trail.head;
+                SpgListNode* tail_node = a->trail.head;
                 if(tail_node) {
                     free_vec2((Vec2*)tail_node->data);
                     list_pop_head(&a->trail);
@@ -179,7 +179,7 @@ void asteroid_update_asteroids(double dt) {
             // If no trail left, free asteroid
             if(a->trail.size == 0) {
                 asteroid_free(a);
-                ListNode* to_remove = node;
+                SpgListNode* to_remove = node;
                 node = node->next; // Move to next before removing
                 list_remove(&asteroids, to_remove);
                 continue;
@@ -192,7 +192,7 @@ void asteroid_update_asteroids(double dt) {
         if(is_too_far_out) {
             // Remove asteroid if it goes too far out of bounds
             asteroid_free(a);
-            ListNode* to_remove = node;
+            SpgListNode* to_remove = node;
             node = node->next; // Move to next before removing
             list_remove(&asteroids, to_remove);
             continue;
@@ -203,10 +203,10 @@ void asteroid_update_asteroids(double dt) {
 }
 
 void asteroid_draw_asteroids(Canvas* canvas) {
-    for(ListNode* node = asteroids.head; node != NULL; node = node->next) {
+    for(SpgListNode* node = asteroids.head; node != NULL; node = node->next) {
         Asteroid* a = (Asteroid*)node->data;
 
-        for(ListNode* trail_node = a->trail.head; trail_node != NULL;
+        for(SpgListNode* trail_node = a->trail.head; trail_node != NULL;
             trail_node = trail_node->next) {
             Vec2* point = (Vec2*)trail_node->data;
             canvas_draw_dot(canvas, (int)point->x, (int)point->y);

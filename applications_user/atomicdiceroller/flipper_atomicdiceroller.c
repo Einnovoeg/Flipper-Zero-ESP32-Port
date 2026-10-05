@@ -3,13 +3,35 @@
 // https://github.com/nmrr
 
 #include <stdio.h>
+#include <esp_timer.h>
 #include <furi.h>
 #include <gui/gui.h>
 #include <input/input.h>
 #include <notification/notification_messages.h>
 #include <furi_hal_power.h>
 #include <locale/locale.h>
-#include <toolbox/crc32_calc.h>
+/* Port: no toolbox/crc32_calc.h on ESP32; local CRC32-IEEE implementation. */
+static uint32_t atomic_crc32_table[256];
+static bool atomic_crc32_ready = false;
+
+static void atomic_crc32_init(void) {
+    if(atomic_crc32_ready) return;
+    for(uint32_t i = 0; i < 256; i++) {
+        uint32_t c = i;
+        for(int k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320u ^ (c >> 1)) : (c >> 1);
+        atomic_crc32_table[i] = c;
+    }
+    atomic_crc32_ready = true;
+}
+
+static uint32_t crc32_calc_buffer(uint32_t crc, const uint8_t* buf, size_t len) {
+    atomic_crc32_init();
+    crc = ~crc;
+    for(size_t i = 0; i < len; i++) {
+        crc = atomic_crc32_table[(crc ^ buf[i]) & 0xFF] ^ (crc >> 8);
+    }
+    return ~crc;
+}
 #include <mbedtls/md5.h>
 #include <expansion/expansion.h>
 
@@ -154,13 +176,9 @@ int32_t flipper_atomicdiceroller_app() {
     Expansion* expansion = furi_record_open(RECORD_EXPANSION);
     expansion_disable(expansion);
 
-    furi_hal_bus_enable(FuriHalBusTIM2);
-    LL_TIM_SetCounterMode(TIM2, LL_TIM_COUNTERMODE_UP);
-    LL_TIM_SetClockDivision(TIM2, LL_TIM_CLOCKDIVISION_DIV1);
-    LL_TIM_SetPrescaler(TIM2, 0);
-    LL_TIM_SetAutoReload(TIM2, 0xFFFFFFFF);
-    LL_TIM_SetCounter(TIM2, 0);
-    LL_TIM_EnableCounter(TIM2);
+    /* Port: STM32 TIM2 free-running counter replaced by the ESP high-res
+     * timer (microseconds, plenty of jitter for entropy sampling). */
+    (void)0;
 
     EventApp event;
     FuriMessageQueue* event_queue = furi_message_queue_alloc(8, sizeof(EventApp));
@@ -341,7 +359,8 @@ int32_t flipper_atomicdiceroller_app() {
                 if(diceBufferCounter < 64) {
                     // CRC32
                     if(method == 0) {
-                        uint32_t TIM2Tick = TIM2->CNT;
+                        uint32_t TIM2Tick =
+                            (uint32_t)(esp_timer_get_time() & 0xFFFFFFFF);
                         bufferTim2[0] = (uint8_t)(TIM2Tick >> 24);
                         bufferTim2[1] = (uint8_t)(TIM2Tick >> 16);
                         bufferTim2[2] = (uint8_t)(TIM2Tick >> 8);

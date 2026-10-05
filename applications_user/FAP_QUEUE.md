@@ -36,6 +36,13 @@ color framebuffer API + driver support (firmware feature, proposed separately).
   18 externals, 1 missing: `furi_assert` (likely macro-resolvable; else add via
   `tools/add_symbol.py` following the "missed api symbols" precedent).
 
+## portal_of_flipper — DEFERRED (needs raw USB device API)
+- Vendored sources stay in tree, but the app is out of the CI build loop: it
+  drives raw USB endpoints/descriptors (`usb.h`: init/deinit/send/receive,
+  custom Xbox 360 descriptors) and our TinyUSB stack exposes only the fixed
+  CDC+HID composite. Unblocks when a raw-USB-device backend + endpoint IO API
+  lands in firmware.
+
 ## proto_pirate — ALREADY PRESENT (no action)
 - Do NOT vendor Momentum-Apps `proto_pirate` 3.0 here: this repo already ships
   a port-adapted `applications_user/protopirate/` at **v3.2** (newer than

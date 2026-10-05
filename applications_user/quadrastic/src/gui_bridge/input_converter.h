@@ -18,6 +18,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <furi.h>
 
 #include <input/input.h>
 

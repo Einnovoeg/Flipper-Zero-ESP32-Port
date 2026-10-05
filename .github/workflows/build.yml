@@ -158,7 +158,11 @@ jobs:
         continue-on-error: true
         run: |
           source ~/esp/esp-idf/export.sh
-          pip install -q pillow
+          # NOTE: python3 here is the IDF venv python (export.sh prepends it),
+          # so packages must go through `python3 -m pip` — bare `pip` may
+          # target a different interpreter (this silently broke icon
+          # generation before: compile_icons.py needs PIL in the venv).
+          python3 -m pip install -q pillow esptool
           mkdir -p artifact_staging/faps
           for app in checkers chess flappy_bird minesweeper solitaire 2048 arkanoid \
               t_rex_runner reversi passgen metronome qrcode barcode_gen tone_gen \
@@ -169,7 +173,7 @@ jobs:
               space_playground color_guess flipbip counter multi_dice atomicdiceroller \
               caesarcipher rubiks_cube_scrambler voltage_calculator \
               resistance_calculator multi_converter image_viewer quadrastic \
-              tanks portal_of_flipper nfc_login; do
+              tanks nfc_login; do
             echo "=== FAP: $app ==="
             ./buildFap.sh "applications_user/$app" || echo "FAP FAILED: $app (see log above)"
           done

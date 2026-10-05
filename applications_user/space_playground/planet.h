@@ -25,7 +25,7 @@ typedef struct Planet {
     float r;
 } Planet;
 
-List planets;
+SpgList planets;
 
 Vec2 planet_get_acceleration(const Planet* planet, const Vec2* pos) {
     Vec2 acc = vec2(0, 0);
@@ -53,7 +53,7 @@ bool is_colliding_with_planet(const Planet* planet, const Vec2* pos) {
 }
 
 bool is_colliding_with_any_planet(const Vec2* pos) {
-    for(ListNode* node = planets.head; node != NULL; node = node->next) {
+    for(SpgListNode* node = planets.head; node != NULL; node = node->next) {
         Planet* planet = (Planet*)node->data;
         if(is_colliding_with_planet(planet, pos)) {
             return true;
@@ -64,7 +64,7 @@ bool is_colliding_with_any_planet(const Vec2* pos) {
 
 Vec2 planet_get_combined_acceleration(const Vec2* pos) {
     Vec2 acc = vec2(0, 0);
-    for(ListNode* node = planets.head; node != NULL; node = node->next) {
+    for(SpgListNode* node = planets.head; node != NULL; node = node->next) {
         Planet* planet = (Planet*)node->data;
         Vec2 planet_acc = planet_get_acceleration(planet, pos);
         acc.x += planet_acc.x;
@@ -102,7 +102,7 @@ void planet_update_planets(double dt) {
 }
 
 void planet_draw_planets(Canvas* canvas) {
-    for(ListNode* node = planets.head; node != NULL; node = node->next) {
+    for(SpgListNode* node = planets.head; node != NULL; node = node->next) {
         Planet* planet = (Planet*)node->data;
         canvas_draw_circle(canvas, (int)planet->pos.x, (int)planet->pos.y, 2 * (int)planet->r);
         canvas_draw_disc(canvas, (int)planet->pos.x, (int)planet->pos.y, (int)planet->r);

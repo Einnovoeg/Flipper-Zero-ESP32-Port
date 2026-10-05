@@ -4,30 +4,30 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-typedef struct ListNode {
+typedef struct SpgListNode {
     void* data;
-    struct ListNode* next;
-    struct ListNode* prev;
-} ListNode;
+    struct SpgListNode* next;
+    struct SpgListNode* prev;
+} SpgListNode;
 
-typedef struct List {
-    ListNode* head;
-    ListNode* tail;
+typedef struct SpgList {
+    SpgListNode* head;
+    SpgListNode* tail;
     size_t size;
-} List;
+} SpgList;
 
-List new_list() {
-    List list;
+SpgList new_list() {
+    SpgList list;
     list.head = NULL;
     list.tail = NULL;
     list.size = 0;
     return list;
 }
 
-void list_free(List* list) {
-    ListNode* current = list->head;
+void list_free(SpgList* list) {
+    SpgListNode* current = list->head;
     while(current) {
-        ListNode* next = current->next;
+        SpgListNode* next = current->next;
         free(current);
         current = next;
     }
@@ -36,7 +36,7 @@ void list_free(List* list) {
     list->size = 0;
 }
 
-void list_remove(List* list, ListNode* node) {
+void list_remove(SpgList* list, SpgListNode* node) {
     if(!node || list->size == 0) return;
 
     if(node->prev) {
@@ -55,8 +55,8 @@ void list_remove(List* list, ListNode* node) {
     list->size--;
 }
 
-void list_push(List* list, void* data) {
-    ListNode* node = (ListNode*)malloc(sizeof(ListNode));
+void list_push(SpgList* list, void* data) {
+    SpgListNode* node = (SpgListNode*)malloc(sizeof(SpgListNode));
     if(!node) return; // Handle memory allocation failure
     node->data = data;
     node->next = NULL;
@@ -71,17 +71,17 @@ void list_push(List* list, void* data) {
     list->size++;
 }
 
-void* list_pop_head(List* list) {
-    if(list->head == NULL) return NULL; // List is empty
+void* list_pop_head(SpgList* list) {
+    if(list->head == NULL) return NULL; // SpgList is empty
 
-    ListNode* node = list->head;
+    SpgListNode* node = list->head;
     void* data = node->data;
 
     list->head = node->next;
     if(list->head) {
         list->head->prev = NULL;
     } else {
-        list->tail = NULL; // List is now empty
+        list->tail = NULL; // SpgList is now empty
     }
     
     free(node);

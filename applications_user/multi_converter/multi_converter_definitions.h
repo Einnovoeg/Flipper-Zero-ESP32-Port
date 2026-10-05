@@ -1,5 +1,7 @@
 #pragma once
 
+#include <furi.h>
+
 #define MULTI_CONVERTER_NUMBER_DIGITS 9
 
 typedef enum {

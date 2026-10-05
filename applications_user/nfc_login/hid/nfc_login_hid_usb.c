@@ -3,7 +3,9 @@
 
 #include <furi_hal_usb.h>
 #include <furi_hal_usb_hid.h>
-#include <usb_hid.h>
+/* Port: dropped <usb_hid.h> (OFW-only helper header); everything it provided
+ * here (FuriHalUsbInterface decls, timing constants) already comes from
+ * furi_hal_usb.h and nfc_login_app.h. */
 #include <furi.h>
 
 static FuriHalUsbInterface* g_usb_previous_config = NULL;
