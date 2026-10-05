@@ -413,7 +413,7 @@ int32_t flipper_atomicdiceroller_app() {
                     }
                     // MD5
                     else {
-                        uint32_t tick = TIM2->CNT;
+                        uint32_t tick = (uint32_t)(esp_timer_get_time() & 0xFFFFFFFF);
                         bufferTim2[0] = (uint8_t)(tick >> 24);
                         bufferTim2[1] = (uint8_t)(tick >> 16);
                         bufferTim2[2] = (uint8_t)(tick >> 8);
@@ -475,8 +475,7 @@ int32_t flipper_atomicdiceroller_app() {
         if(screenRefresh == 1) view_port_update(view_port);
     }
 
-    LL_TIM_DisableCounter(TIM2);
-    furi_hal_bus_disable(FuriHalBusTIM2);
+    /* Port: STM32 TIM2 teardown not applicable (high-res timer needs none). */
 
     mbedtls_md5_free(&md5_ctx);
     //free(md5_ctx);

@@ -16,4 +16,6 @@ App(
     fap_weburl="https://github.com/xtruan/flipper-chess",
     fap_version=(1, 12),
     fap_description="Chess for Flipper",
+    # Port: exclude sam/ (STM32-only speech synth, unused by the app).
+    sources=["*.c*", "!sam/*"],
 )

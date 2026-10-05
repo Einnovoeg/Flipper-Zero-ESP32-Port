@@ -9,6 +9,13 @@
  * like they do on STM32. C only (C++ TUs use new/STL). */
 #pragma once
 #include <stdlib.h>
+/* Also pre-include malloc.h: it redeclares malloc/calloc and would otherwise
+ * expand through the macro below in TUs that include it (e.g. jblanked
+ * apps). Included here, before the macro is defined. May not exist on all
+ * libcs, hence __has_include. */
+#if __has_include(<malloc.h>)
+#include <malloc.h>
+#endif
 #ifndef __cplusplus
 #define malloc(size) calloc(1, (size))
 #endif
