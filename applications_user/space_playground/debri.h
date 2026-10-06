@@ -15,10 +15,10 @@ typedef struct {
 } Debri;
 
 
-SpgList debri_list;
+List debri_list;
 
 void debri_clear() {
-    SpgListNode* node = debri_list.head;
+    ListNode* node = debri_list.head;
     while(node) {
         Debri* d = (Debri*)node->data;
         free(d);
@@ -54,7 +54,7 @@ void debri_create(double x, double y, double vx, double vy) {
 }
 
 void debri_update(double dt) {
-    SpgListNode* node = debri_list.head;
+    ListNode* node = debri_list.head;
     while(node) {
         Debri* d = (Debri*)node->data;
 
@@ -65,7 +65,7 @@ void debri_update(double dt) {
                                       d->pos.y > 64;
 
         if(is_colliding_with_any_planet(&d->pos) || is_out_of_bounds) {
-            SpgListNode* to_remove = node;
+            ListNode* to_remove = node;
             node = node->next;
             list_remove(&debri_list, to_remove);
             free(d);
@@ -76,7 +76,7 @@ void debri_update(double dt) {
 }
 
 void debri_draw(Canvas* canvas) {
-    for(SpgListNode* node = debri_list.head; node != NULL; node = node->next) {
+    for(ListNode* node = debri_list.head; node != NULL; node = node->next) {
         Debri* d = (Debri*)node->data;
         canvas_draw_disc(canvas, (int32_t)d->pos.x, (int32_t)d->pos.y, 1);
     }

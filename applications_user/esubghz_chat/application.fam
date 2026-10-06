@@ -10,7 +10,15 @@ App(
     stack_size=7 * 1024,
     fap_category="Sub-GHz",
     fap_libs=["mbedtls"],
-    fap_private_libs=[Lib(name="nfclegacy"), Lib(name="parity")],
+    # Port: nfclegacy lib (ST25RFAL + legacy NfcWorker, STM32-only) excluded;
+    # NFC key-exchange scenes are excluded below. Core SubGHz chat unaffected.
+    fap_private_libs=[Lib(name="parity")],
+    sources=[
+        "*.c*",
+        "!lib/nfclegacy/*",
+        "!scenes/esubghz_chat_key_read_popup.c",
+        "!scenes/esubghz_chat_key_share_popup.c",
+    ],
     fap_icon="assets/chat_10px.png",
     fap_author="@twisted-pear & @xMasterX & more in ReadMe",
     fap_weburl="https://github.com/twisted-pear/esubghz_chat",

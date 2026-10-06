@@ -4,6 +4,8 @@
 /* Port: dropped ui_hacks_for_no_reason/* (unused OFW-internal struct copies;
  * they collide with the Xtensa toolchain headers and nothing uses them). */
 #include <gui/scene_manager.h>
+#include <gui/view_dispatcher.h>
+#include <gui/view_port.h>
 #include <gui/modules/byte_input.h>
 #include <gui/modules/dialog_ex.h>
 #include <gui/modules/menu.h>
@@ -19,7 +21,9 @@
 
 #include "esubghz_chat_icons.h"
 
-#include <lib/nfclegacy/nfc_worker.h>
+/* Port: legacy NfcWorker/RFAL absent on ESP32 (PN532 HAL instead). The NFC
+ * key-exchange scenes are excluded from the build; fields kept as void*
+ * so the shared state layout stays source-compatible. */
 
 #define APPLICATION_NAME "ESubGhzChat"
 
@@ -57,9 +61,9 @@ typedef struct {
     SubGhzTxRxWorker* subghz_worker;
     const SubGhzDevice* subghz_device;
 
-    // for NFC
-    NfcWorker* nfc_worker;
-    NfcDeviceData* nfc_dev_data;
+    // for NFC (disabled on this port; see above)
+    void* nfc_worker;
+    void* nfc_dev_data;
 
     // message assembly before TX
     FuriString* name_prefix;

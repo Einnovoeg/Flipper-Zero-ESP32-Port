@@ -4,8 +4,8 @@
 #include "app_state.h"
 #include "scenes.h"
 #include "scene_edit.h"
-#include <applications/services/gui/modules/widget.h>
-#include <applications/services/gui/modules/widget_elements/widget_element.h>
+#include <gui/modules/widget.h>
+#include <gui/modules/widget_elements/widget_element.h>
 #include <gui/view.h>
 
 const int values_left = 64;

@@ -619,13 +619,10 @@ int32_t esubghz_chat(const char* args) {
         goto err_alloc_worker;
     }
 
-    NfcDevice* nfcdevic = nfc_device_alloc();
-    state->nfc_dev_data = &nfcdevic->dev_data;
-
-    state->nfc_worker = nfc_worker_alloc();
-    if(state->nfc_worker == NULL) {
-        goto err_alloc_nworker;
-    }
+    /* Port: NFC key-exchange disabled (legacy NfcWorker/RFAL absent on ESP32).
+     * Chat core uses SubGHz only; fields stay NULL. */
+    state->nfc_dev_data = NULL;
+    state->nfc_worker = NULL;
 
     /*state->nfc_dev_data = malloc(sizeof(NfcDeviceData));
     if(state->nfc_dev_data == NULL) {
@@ -725,8 +722,7 @@ int32_t esubghz_chat(const char* args) {
         subghz_tx_rx_worker_stop(state->subghz_worker);
     }
 
-    /* if it is running, stop the NFC worker */
-    nfc_worker_stop(state->nfc_worker);
+    /* Port: NFC worker disabled (see alloc). */
 
     err = 0;
 
@@ -750,13 +746,7 @@ int32_t esubghz_chat(const char* args) {
     crypto_explicit_bzero(state->key_hex_str, sizeof(state->key_hex_str));
     crypto_ctx_clear(state->crypto_ctx);
 
-    /* clear nfc data */
-    if(state->nfc_dev_data->parsed_data != NULL) {
-        furi_string_free(state->nfc_dev_data->parsed_data);
-    }
-
-    //nfc_device_data_clear(state->nfc_dev_data);
-    crypto_explicit_bzero(state->nfc_dev_data, sizeof(NfcDeviceData));
+    /* Port: no NFC data on this port. */
 
     /* deinit devices */
     radio_device_loader_end(state->subghz_device);
@@ -771,14 +761,6 @@ int32_t esubghz_chat(const char* args) {
     crypto_ctx_free(state->crypto_ctx);
 
 err_alloc_crypto:
-    //free(state->nfc_dev_data);
-
-    //err_alloc_ndevdata:
-    nfc_worker_free(state->nfc_worker);
-
-    nfc_device_free(nfcdevic);
-
-err_alloc_nworker:
     subghz_tx_rx_worker_free(state->subghz_worker);
 
 err_alloc_worker:
