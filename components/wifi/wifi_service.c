@@ -126,22 +126,9 @@ static void wifi_try_reconnect(Wifi* wifi) {
     wlan_hal_connect(wifi->settings.last_ssid, has ? pw : NULL, NULL, 0);
 }
 
-/* BT bring-up guard (defined in furi_hal_bt.c; direct extern because a
- * component dependency here would be overkill for one flag — same pattern
- * as in ble_hid.c). */
-#include <stdatomic.h>
-extern _Atomic bool furi_bt_bringup_in_progress_flag;
-
 static void wifi_do_enable(Wifi* wifi) {
-    /* If the BT controller is mid-init, tearing it down now would race the
-     * bring-up (same crash class as the boot race). Wait bounded for it to
-     * finish, then proceed with the orderly shutdown. */
-    for(int i = 0; i < 60 && atomic_load(&furi_bt_bringup_in_progress_flag); i++) {
-        furi_delay_ms(50);
-    }
-    if(atomic_load(&furi_bt_bringup_in_progress_flag)) {
-        FURI_LOG_W(TAG, "BT bring-up still busy after 3s, proceeding anyway");
-    }
+    /* NOTE: BT/WiFi serialization lives in wlan_hal_start() (waits for any
+     * in-progress BT bring-up), which every radio-up path funnels through. */
     wifi_shutdown_bt();
     if(!wlan_hal_start()) {
         FURI_LOG_E(TAG, "wlan_hal_start failed");

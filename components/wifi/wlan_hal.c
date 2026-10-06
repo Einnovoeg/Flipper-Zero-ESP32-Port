@@ -380,8 +380,25 @@ static void wlan_send_cmd_sync(WlanCmd* cmd) {
     }
 }
 
+/* BT bring-up guard (owned by furi_hal_bt.c; direct extern like ble_hid.c
+ * to avoid component dependency churn). */
+#include <stdatomic.h>
+extern _Atomic bool furi_bt_bringup_in_progress_flag;
+
 bool wlan_hal_start(void) {
     if(s_started) return true;
+
+    /* Never start WiFi (or tear BT down) while the BT controller is
+     * mid-init: esp_bt_controller_init() crashes or wedges when the WiFi
+     * driver transitions concurrently (pthread TLS lookup / coex spin).
+     * BT init always finishes on its own (nothing here blocks it), so
+     * waiting is deadlock-free; the bound only guards a wedged BT. */
+    for(int i = 0; i < 300 && atomic_load(&furi_bt_bringup_in_progress_flag); i++) {
+        furi_delay_ms(50);
+    }
+    if(atomic_load(&furi_bt_bringup_in_progress_flag)) {
+        ESP_LOGW(TAG, "BT bring-up still busy after 15s, starting WiFi anyway");
+    }
 
     Bt* bt = furi_record_open(RECORD_BT);
     s_bt_was_on = bt_is_enabled(bt);
