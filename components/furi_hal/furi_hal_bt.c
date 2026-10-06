@@ -9,6 +9,7 @@
 #include <esp_log.h>
 #include <stddef.h>
 #include <string.h>
+#include <stdatomic.h>
 
 #define TAG "FuriHalBt"
 
@@ -78,6 +79,31 @@ static void bt_gap_event_bridge_serial(bool connected, void* context) {
 }
 
 /* ---- Radio stack ---- */
+
+/* Set while the BT controller is being initialized or torn down. WiFi
+ * startup waits on this (bounded) so the two radios never init/deinit
+ * concurrently — esp_bt_controller_init() crashes or wedges the device when
+ * the WiFi driver is mid-transition (LoadProhibited in the WiFi adapter's
+ * pthread TLS lookup / coex semaphore spin). Paired with the btshim autostart
+ * gate (BLE stays off when WiFi is already up); together they make the
+ * WiFi/BLE mutual exclusion race-free in both directions.
+ *
+ * Non-static on purpose: ble_hid.c sets it directly via extern because
+ * including furi_hal_bt.h there would create a component dependency cycle
+ * (furi_hal already requires ble_hid). */
+_Atomic bool furi_bt_bringup_in_progress_flag = false;
+
+void furi_hal_bt_bringup_begin(void) {
+    atomic_store(&furi_bt_bringup_in_progress_flag, true);
+}
+
+void furi_hal_bt_bringup_end(void) {
+    atomic_store(&furi_bt_bringup_in_progress_flag, false);
+}
+
+bool furi_hal_bt_bringup_in_progress(void) {
+    return atomic_load(&furi_bt_bringup_in_progress_flag);
+}
 
 bool furi_hal_bt_start_radio_stack(void) {
     return true;

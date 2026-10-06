@@ -70,6 +70,13 @@ static inline bool ble_glue_wait_for_c2_start(uint32_t timeout) {
  *  STM32 bt_service compatibility and always returns true. */
 bool furi_hal_bt_start_radio_stack(void);
 
+/** BT controller bring-up guard (see furi_hal_bt.c). WiFi startup waits on
+ * this (bounded) before touching the radios; BT init sets it around
+ * esp_bt_controller_init/enable. */
+void furi_hal_bt_bringup_begin(void);
+void furi_hal_bt_bringup_end(void);
+bool furi_hal_bt_bringup_in_progress(void);
+
 /** Check if GATT/GAP is supported (always true on ESP32) */
 bool furi_hal_bt_is_gatt_gap_supported(void);
 

@@ -17,6 +17,7 @@
 #include <ble_profile/extra_profiles/serial_profile.h>
 #include <rpc/rpc.h>
 #include <esp_log.h>
+#include <esp_wifi.h>
 #include <esp_bt.h>
 #include <esp_heap_caps.h>
 #include <esp_bt_main.h>
@@ -814,8 +815,20 @@ int32_t bt_srv(void* p) {
     }
 
     if(bt->bt_settings.enabled) {
-        /* Start the BLE stack and default profile */
-        if(furi_hal_bt_start_radio_stack()) {
+        /* Mutual exclusion with WiFi: esp_bt_controller_init() crashes
+         * (LoadProhibited in the WiFi adapter's pthread TLS lookup) or wedges
+         * the device (task_wdt on a coex semaphore spin) when the WiFi driver
+         * is up — the two autostarts race at boot. WiFi strictly wins ties:
+         * stay off here; enabling Bluetooth from the lock menu runs
+         * wifi_disable() first, which sequences the transition safely. */
+        wifi_mode_t wifi_mode = WIFI_MODE_NULL;
+        bool wifi_up =
+            (esp_wifi_get_mode(&wifi_mode) == ESP_OK && wifi_mode != WIFI_MODE_NULL);
+        if(wifi_up) {
+            FURI_LOG_W(
+                TAG, "WiFi driver up at BT autostart, keeping BLE off (enable it from the lock menu)");
+        } else if(furi_hal_bt_start_radio_stack()) {
+            /* Start the BLE stack and default profile */
             bt_init_keys_settings(bt);
             furi_hal_bt_set_key_storage_change_callback(bt_on_key_storage_change_callback, bt);
         } else {

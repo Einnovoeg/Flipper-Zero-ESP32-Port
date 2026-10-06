@@ -7,6 +7,7 @@
  */
 
 #include "ble_serial.h"
+#include <furi_hal_bt.h>
 #include <protobuf_version.h>
 
 #include <string.h>
@@ -848,38 +849,15 @@ static void serial_gatts_event_handler(
     }
 }
 
-/* ---- BLE stack init (shared with ble_hid, idempotent) ---- */
-
-#include <pthread.h>
-
-/* Bring-up payload for the controller thread below. */
-typedef struct {
-    esp_bt_controller_config_t cfg;
-    esp_err_t init_err;
-    esp_err_t enable_err;
-} BleControllerBringup;
-
-/* Run the BT controller bring-up on a real pthread.
+/* ---- BLE stack init (shared with ble_hid, idempotent) ----
  *
- * Why: esp_bt_controller_init() -> coex lpclk update -> WiFi driver ioctl
- * reaches pthread_getspecific() (wifi_thread_semphr_get_wrapper). Our callers
- * (BtSrv) are plain FreeRTOS tasks with no pthread TLS, so the lookup
- * dereferences garbage (LoadProhibited, excvaddr ~0x60k) or spins forever
- * starving IDLE (task_wdt) depending on heap state — the intermittent
- * boot-loop/freeze seen on device. On a proper pthread the TLS exists and
- * the semaphore protocol blocks correctly. Post-init Bluedroid calls never
- * touch this path (53 min of clean BLE operation observed), so wrapping
- * init+enable is sufficient and behavior is otherwise identical (join). */
-static void* ble_controller_bringup_thread(void* arg) {
-    BleControllerBringup* bringup = (BleControllerBringup*)arg;
-    bringup->init_err = esp_bt_controller_init(&bringup->cfg);
-    if(bringup->init_err == ESP_OK || bringup->init_err == ESP_ERR_INVALID_STATE) {
-        bringup->enable_err = esp_bt_controller_enable(ESP_BT_MODE_BLE);
-    } else {
-        bringup->enable_err = bringup->init_err;
-    }
-    return NULL;
-}
+ * NOTE: esp_bt_controller_init() must never run while the WiFi driver is up:
+ * its coex path reaches pthread_getspecific() in the WiFi adapter, which
+ * crashes (LoadProhibited) or spins (task_wdt) when called from a plain
+ * FreeRTOS task. Mutual exclusion with WiFi is enforced at the autostart
+ * sites (btshim skips BLE when WiFi is up; wifi_do_enable shuts BLE down),
+ * NOT here — and definitely not via a pthread wrapper (pthread_create from
+ * a non-pthread task crashes identically). */
 
 static esp_err_t serial_stack_init_once(void) {
     esp_err_t err = ESP_OK;
@@ -906,26 +884,16 @@ static esp_err_t serial_stack_init_once(void) {
     err = esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT);
     if(err != ESP_OK && err != ESP_ERR_INVALID_STATE) return err;
 
-    BleControllerBringup bringup = {
-        .cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT(),
-        .init_err = ESP_OK,
-        .enable_err = ESP_OK,
-    };
-    pthread_attr_t attr;
-    pthread_attr_init(&attr);
-    pthread_attr_setstacksize(&attr, 12288);
-    pthread_t bringup_thread;
-    if(pthread_create(&bringup_thread, &attr, ble_controller_bringup_thread, &bringup) != 0) {
-        pthread_attr_destroy(&attr);
-        return ESP_ERR_NO_MEM;
+    furi_hal_bt_bringup_begin();
+    esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+    err = esp_bt_controller_init(&bt_cfg);
+    if(err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        furi_hal_bt_bringup_end();
+        return err;
     }
-    pthread_attr_destroy(&attr);
-    pthread_join(bringup_thread, NULL);
 
-    err = bringup.init_err;
-    if(err != ESP_OK && err != ESP_ERR_INVALID_STATE) return err;
-
-    err = bringup.enable_err;
+    err = esp_bt_controller_enable(ESP_BT_MODE_BLE);
+    furi_hal_bt_bringup_end();
     if(err != ESP_OK && err != ESP_ERR_INVALID_STATE) return err;
 
     esp_bluedroid_config_t bluedroid_cfg = BT_BLUEDROID_INIT_CONFIG_DEFAULT();

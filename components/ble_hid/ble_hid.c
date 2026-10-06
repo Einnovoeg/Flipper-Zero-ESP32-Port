@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdatomic.h>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
@@ -463,13 +464,20 @@ static esp_err_t ble_hid_stack_init_once(void) {
         return err;
     }
 
+    /* Same bring-up guard as ble_serial (see furi_hal_bt.c): direct extern
+     * flag access because including furi_hal_bt.h here would cycle component
+     * dependencies (furi_hal already requires ble_hid). */
+    extern _Atomic bool furi_bt_bringup_in_progress_flag;
+    atomic_store(&furi_bt_bringup_in_progress_flag, true);
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     err = esp_bt_controller_init(&bt_cfg);
     if((err != ESP_OK) && (err != ESP_ERR_INVALID_STATE)) {
+        atomic_store(&furi_bt_bringup_in_progress_flag, false);
         return err;
     }
 
     err = esp_bt_controller_enable(ESP_BT_MODE_BLE);
+    atomic_store(&furi_bt_bringup_in_progress_flag, false);
     if((err != ESP_OK) && (err != ESP_ERR_INVALID_STATE)) {
         return err;
     }
