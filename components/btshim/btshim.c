@@ -615,6 +615,9 @@ static void bt_handle_start_stack(Bt* bt) {
         return;
     }
 
+    /* Same guard as autostart: cover the gap before the controller-init
+     * wrap in serial_stack_init_once (WiFi must stay down until BT is up). */
+    furi_hal_bt_bringup_begin();
     if(furi_hal_bt_start_radio_stack()) {
         bt_start_application(bt);
         if(bt->bt_settings.enabled) {
@@ -624,6 +627,7 @@ static void bt_handle_start_stack(Bt* bt) {
         FURI_LOG_E(TAG, "Radio stack start failed");
         bt->status = BtStatusUnavailable;
     }
+    furi_hal_bt_bringup_end();
 
     FURI_LOG_I(TAG, "BLE stack started");
 }
@@ -828,9 +832,14 @@ int32_t bt_srv(void* p) {
             FURI_LOG_W(
                 TAG, "WiFi driver up at BT autostart, keeping BLE off (enable it from the lock menu)");
         } else if(furi_hal_bt_start_radio_stack()) {
-            /* Start the BLE stack and default profile */
+            /* Hold the bring-up guard across keys/profile work: the WiFi
+             * autostart runs concurrently and must not start the driver in
+             * the gap before serial_stack_init_once sets its own guard
+             * (esp_bt_controller_init crashes with WiFi up). */
+            furi_hal_bt_bringup_begin();
             bt_init_keys_settings(bt);
             furi_hal_bt_set_key_storage_change_callback(bt_on_key_storage_change_callback, bt);
+            furi_hal_bt_bringup_end();
         } else {
             FURI_LOG_E(TAG, "Radio stack start failed");
         }

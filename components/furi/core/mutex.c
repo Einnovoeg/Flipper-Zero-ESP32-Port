@@ -24,6 +24,10 @@ FuriMutex* furi_mutex_alloc(FuriMutexType type) {
 
     /* FreeRTOS requires StaticSemaphore_t in internal RAM, not PSRAM */
     FuriMutex* instance = heap_caps_calloc(1, sizeof(FuriMutex), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    /* Fail fast with a clear message: without this, a NULL instance makes
+     * xSemaphoreCreateMutexStatic assert cryptically on pxStaticQueue
+     * (seen when internal heap is exhausted at menu start). */
+    furi_check(instance);
 
     SemaphoreHandle_t hMutex;
 

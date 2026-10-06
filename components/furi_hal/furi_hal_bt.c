@@ -93,12 +93,22 @@ static void bt_gap_event_bridge_serial(bool connected, void* context) {
  * (furi_hal already requires ble_hid). */
 _Atomic bool furi_bt_bringup_in_progress_flag = false;
 
+/* Nesting counter: bring-up wraps (autostart, start_stack) contain the
+ * controller-init wrap in serial_stack_init_once. Plain bool would clear
+ * early on the inner end; the counter keeps the guard until the outermost
+ * end. Readers keep using the bool flag (count > 0). */
+static _Atomic int furi_bt_bringup_nesting = 0;
+
 void furi_hal_bt_bringup_begin(void) {
+    atomic_fetch_add(&furi_bt_bringup_nesting, 1);
     atomic_store(&furi_bt_bringup_in_progress_flag, true);
 }
 
 void furi_hal_bt_bringup_end(void) {
-    atomic_store(&furi_bt_bringup_in_progress_flag, false);
+    if(atomic_fetch_sub(&furi_bt_bringup_nesting, 1) <= 1) {
+        atomic_store(&furi_bt_bringup_nesting, 0);
+        atomic_store(&furi_bt_bringup_in_progress_flag, false);
+    }
 }
 
 bool furi_hal_bt_bringup_in_progress(void) {

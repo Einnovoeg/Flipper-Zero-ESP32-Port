@@ -28,6 +28,7 @@
 #include <esp_gatt_common_api.h>
 #include <esp_log.h>
 #include <esp_mac.h>
+#include <esp_wifi.h>
 #include <nvs_flash.h>
 
 #include <furi_ble/gap.h>
@@ -873,6 +874,18 @@ static esp_err_t serial_stack_init_once(void) {
         return ESP_OK;
     }
     serial_unlock_global();
+
+    /* Fail-safe: never run controller init with the WiFi driver up
+     * (LoadProhibited in the WiFi adapter's pthread TLS lookup / coex
+     * spin). All ordered transitions (autostart gate, lock-menu toggle,
+     * wifi_disable restore) bring WiFi down first; if it is still up here,
+     * stay off gracefully instead of crash-looping. The lock-menu BT toggle
+     * retries safely (it runs wifi_disable first). */
+    wifi_mode_t wifi_mode = WIFI_MODE_NULL;
+    if(esp_wifi_get_mode(&wifi_mode) == ESP_OK && wifi_mode != WIFI_MODE_NULL) {
+        ESP_LOGE(TAG, "WiFi driver up, refusing BLE controller init (use lock-menu BT toggle)");
+        return ESP_ERR_INVALID_STATE;
+    }
 
     err = nvs_flash_init();
     if(err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
