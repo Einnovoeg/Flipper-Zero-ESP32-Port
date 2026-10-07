@@ -81,7 +81,7 @@ static void tz_format_offset(int32_t minutes, char* out, size_t outsz) {
         return;
     }
     char sign = minutes < 0 ? '-' : '+';
-    int32_t absmin = minutes < 0 ? -minutes : minutes;
+    int absmin = (int)(minutes < 0 ? -minutes : minutes);
     snprintf(out, outsz, "UTC%c%02d:%02d", sign, absmin / 60, absmin % 60);
 }
 
