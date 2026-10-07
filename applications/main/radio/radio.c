@@ -202,6 +202,9 @@ static RadioApp* radio_alloc(void) {
     radio_rebuild_menu(app, NULL);
     radio_install_menu_callbacks(app);
 
+    /* Select the initial view (same viewless-dispatcher trap as voice memo). */
+    view_dispatcher_switch_to_view(app->dispatcher, RadioViewSubmenu);
+
     view_dispatcher_attach_to_gui(app->dispatcher, app->gui, ViewDispatcherTypeFullscreen);
     return app;
 }

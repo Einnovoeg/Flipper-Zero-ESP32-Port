@@ -371,6 +371,10 @@ static VoiceMemoApp* voice_memo_alloc(void) {
 
     voice_memo_rescan(app, NULL);
 
+    /* Select the initial view: without this the dispatcher runs viewless
+     * (app invisible, input lost, loader stays locked forever). */
+    view_dispatcher_switch_to_view(app->dispatcher, VoiceMemoViewSubmenu);
+
     view_dispatcher_attach_to_gui(
         app->dispatcher, app->gui, ViewDispatcherTypeFullscreen);
     return app;

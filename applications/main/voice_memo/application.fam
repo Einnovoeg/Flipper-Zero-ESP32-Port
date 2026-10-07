@@ -3,7 +3,7 @@ App(
     name="Voice Memo",
     apptype=FlipperAppType.MENUEXTERNAL,
     entry_point="voice_memo_app",
-    icon="A_Streaming_14",
+    icon="A_Mic_14",
     stack_size=4 * 1024,
     order=82,
     fap_category="Tools",
