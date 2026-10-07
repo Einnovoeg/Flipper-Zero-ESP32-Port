@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <esp_heap_caps.h>
 
 #include <cli/cli_vcp.h>
@@ -738,33 +739,44 @@ void desktop_api_set_settings(Desktop* instance, const DesktopSettings* settings
  * Application thread
  */
 
-/** Display timezone persistence: /int/.timezone holds whole minutes east of
- * UTC as plain text (e.g. "-300"). Applied at every boot so the Clock app,
- * RPC datetime and manual sets observe local time while the system clock
- * itself stays on UTC (SNTP, file times). Missing/unreadable file = UTC. */
+/** Display timezone persistence: /int/.timezone holds the zone as plain text:
+ *   "<standard offset minutes> [dst rule] [city index]"
+ * e.g. "-480 1 0" (US Pacific with DST). The DST rule and city index are
+ * optional so old files (""-300"") still load as a fixed offset. Applied at
+ * every boot so the Clock app, RPC datetime and manual sets observe local time
+ * while the system clock itself stays on UTC (SNTP, file times). Missing or
+ * unreadable file = UTC. */
 #define DESKTOP_TIMEZONE_PATH "/int/.timezone"
 
 static void desktop_load_timezone(Storage* storage) {
     File* file = storage_file_alloc(storage);
     int32_t minutes = 0;
+    int dst_rule = FURI_HAL_RTC_TZ_DST_NONE;
     bool ok = false;
     if(storage_file_open(file, DESKTOP_TIMEZONE_PATH, FSAM_READ, FSOM_OPEN_EXISTING)) {
-        char buf[16] = {0};
+        char buf[32] = {0};
         size_t n = storage_file_read(file, buf, sizeof(buf) - 1);
         storage_file_close(file);
         if(n > 0) {
-            minutes = (int32_t)strtol(buf, NULL, 10);
-            ok = true;
+            int base = 0;
+            int dst = FURI_HAL_RTC_TZ_DST_NONE;
+            int parsed = sscanf(buf, "%d %d", &base, &dst);
+            if(parsed >= 1) {
+                minutes = base;
+                dst_rule = (parsed >= 2) ? dst : FURI_HAL_RTC_TZ_DST_NONE;
+                ok = true;
+            }
         }
     }
     storage_file_free(file);
     if(ok) {
-        furi_hal_rtc_set_timezone_offset(minutes);
+        furi_hal_rtc_set_timezone_zone(minutes, (uint8_t)dst_rule);
         FURI_LOG_I(
             TAG,
-            "Timezone UTC%+d:%02u applied",
+            "Timezone UTC%+d:%02u (dst rule %d) applied",
             (int)(minutes / 60),
-            (unsigned)(abs(minutes) % 60));
+            (unsigned)(abs(minutes) % 60),
+            dst_rule);
     }
 }
 

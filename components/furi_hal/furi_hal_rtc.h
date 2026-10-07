@@ -107,9 +107,28 @@ uint32_t furi_hal_rtc_get_timestamp(void);
 /** Display timezone offset in minutes east of UTC (e.g. -300 for UTC-5).
  * The system clock itself always stays on UTC (SNTP, file times); the offset
  * is applied symmetrically when converting to/from wall-clock DateTime, so
- * the Clock app, RPC datetime and manual sets all observe local time. */
+ * the Clock app, RPC datetime and manual sets all observe local time.
+ *
+ * These accessors deal with the *effective* offset (standard offset + DST if
+ * the zone currently observes it). For zones that observe DST use
+ * furi_hal_rtc_set_timezone_zone() to store the standard offset + rule. */
 void furi_hal_rtc_set_timezone_offset(int32_t minutes);
 int32_t furi_hal_rtc_get_timezone_offset(void);
+
+/** Daylight-saving rules understood by this port (northern + Australian
+ * patterns cover every city in the picker). */
+#define FURI_HAL_RTC_TZ_DST_NONE 0 /* fixed offset, no DST */
+#define FURI_HAL_RTC_TZ_DST_US 1 /* 2nd Sun Mar -> 1st Sun Nov (US/Canada) */
+#define FURI_HAL_RTC_TZ_DST_EU 2 /* last Sun Mar -> last Sun Oct (EU/UK) */
+#define FURI_HAL_RTC_TZ_DST_AU 3 /* 1st Sun Oct -> 1st Sun Apr (AU, south) */
+
+/** Store a timezone as standard-time offset + DST rule. */
+void furi_hal_rtc_set_timezone_zone(int32_t base_minutes, uint8_t dst_rule);
+/** Read back the stored standard offset and DST rule. */
+void furi_hal_rtc_get_timezone_zone(int32_t* base_minutes, uint8_t* dst_rule);
+/** Effective offset (base + DST if active right now) for a given zone — used
+ * by the city picker to label each entry with the offset it has today. */
+int32_t furi_hal_rtc_tz_effective_offset(int32_t base_minutes, uint8_t dst_rule);
 
 /** Daily alarm (software stub: this port has no VBAT-backed RTC alarm
  * peripheral, so time+enabled live in RAM and nothing fires the callback
