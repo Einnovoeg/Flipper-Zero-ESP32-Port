@@ -66,7 +66,7 @@ bool clock_settings_scene_timezone_on_event(void* context, SceneManagerEvent eve
         storage_file_close(file);
     }
     storage_file_free(file);
-    furi_record_close(storage);
+    furi_record_close(RECORD_STORAGE);
 
     FURI_LOG_I(
         TAG,
