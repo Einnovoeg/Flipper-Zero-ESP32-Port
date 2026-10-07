@@ -84,8 +84,9 @@ bool furi_hal_mic_start(uint32_t sample_rate) {
             .din = (gpio_num_t)BOARD_PIN_MIC_DATA,
         },
     };
-    if(i2s_channel_init_pdm_rx_mode(mic_rx_handle, &pdm_cfg) != ESP_OK) {
-        FURI_LOG_E(TAG, "pdm_rx_mode init failed");
+    esp_err_t err = i2s_channel_init_pdm_rx_mode(mic_rx_handle, &pdm_cfg);
+    if(err != ESP_OK) {
+        FURI_LOG_E(TAG, "pdm_rx_mode init failed: %s (0x%x)", esp_err_to_name(err), err);
         i2s_del_channel(mic_rx_handle);
         mic_rx_handle = NULL;
         return false;

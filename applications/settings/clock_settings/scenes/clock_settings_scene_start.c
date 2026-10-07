@@ -16,8 +16,8 @@ void clock_settings_scene_start_on_enter(void* context) {
     submenu_reset(app->submenu);
     submenu_set_header(app->submenu, "Clock settings");
     submenu_add_item(
-        app->submenu, "Backlight", ClockSettingsStartBacklight, clock_settings_start_callback,
-        app);
+        app->submenu, "Set Time / Alarm", ClockSettingsStartBacklight,
+        clock_settings_start_callback, app);
     submenu_add_item(
         app->submenu, "Timezone", ClockSettingsStartTimezone, clock_settings_start_callback,
         app);

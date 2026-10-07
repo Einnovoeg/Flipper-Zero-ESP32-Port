@@ -26,6 +26,14 @@
 
 #define THREAD_STACK_WATERMARK_MIN (256u)
 
+/* FreeRTOS per-task TLS slot holding the running FuriThread*. Must NOT be 0:
+ * ESP-IDF's pthread uses slot 0 (PTHREAD_TLS_INDEX) for its per-thread key
+ * values, and lwip's sys_thread_sem_get() calls pthread_getspecific() from
+ * every netconn/socket call. Sharing slot 0 made socket() on any FuriThread
+ * dereference the FuriThread* as a pthread values-list (LoadProhibited in
+ * pthread_getspecific). Requires CONFIG_FREERTOS_THREAD_LOCAL_STORAGE_POINTERS>=2. */
+#define FURI_THREAD_TLS_INDEX (1)
+
 typedef struct {
     FuriThreadStdoutWriteCallback write_callback;
     FuriString* buffer;
@@ -107,8 +115,8 @@ static void furi_thread_body(void* context) {
     furi_check(context);
     FuriThread* thread = context;
 
-    furi_check(pvTaskGetThreadLocalStoragePointer(NULL, 0) == NULL);
-    vTaskSetThreadLocalStoragePointer(NULL, 0, thread);
+    furi_check(pvTaskGetThreadLocalStoragePointer(NULL, FURI_THREAD_TLS_INDEX) == NULL);
+    vTaskSetThreadLocalStoragePointer(NULL, FURI_THREAD_TLS_INDEX, thread);
 
     furi_check(thread->state == FuriThreadStateStarting);
     furi_thread_set_state(thread, FuriThreadStateRunning);
@@ -159,7 +167,7 @@ static void furi_thread_init_common(FuriThread* thread) {
 
     FuriThread* parent = NULL;
     if(xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED) {
-        parent = pvTaskGetThreadLocalStoragePointer(NULL, 0);
+        parent = pvTaskGetThreadLocalStoragePointer(NULL, FURI_THREAD_TLS_INDEX);
 
         if(parent && parent->appid) {
             furi_thread_set_appid(thread, parent->appid);
@@ -197,8 +205,9 @@ void furi_thread_scrub(void) {
         TaskHandle_t task = (TaskHandle_t)thread_to_scrub;
 
         vTaskDelete(task);
-        furi_check(pvTaskGetThreadLocalStoragePointer(task, 0) == thread_to_scrub);
-        vTaskSetThreadLocalStoragePointer(task, 0, NULL);
+        furi_check(
+            pvTaskGetThreadLocalStoragePointer(task, FURI_THREAD_TLS_INDEX) == thread_to_scrub);
+        vTaskSetThreadLocalStoragePointer(task, FURI_THREAD_TLS_INDEX, NULL);
 
         furi_thread_set_state(thread_to_scrub, FuriThreadStateStopped);
     }
@@ -486,7 +495,7 @@ FuriThreadId furi_thread_get_current_id(void) {
 }
 
 FuriThread* furi_thread_get_current(void) {
-    FuriThread* thread = pvTaskGetThreadLocalStoragePointer(NULL, 0);
+    FuriThread* thread = pvTaskGetThreadLocalStoragePointer(NULL, FURI_THREAD_TLS_INDEX);
     return thread;
 }
 
@@ -730,7 +739,8 @@ const char* furi_thread_get_appid(FuriThreadId thread_id) {
     const char* appid = "system";
 
     if(!FURI_IS_IRQ_MODE() && (hTask != NULL)) {
-        FuriThread* thread = (FuriThread*)pvTaskGetThreadLocalStoragePointer(hTask, 0);
+        FuriThread* thread =
+            (FuriThread*)pvTaskGetThreadLocalStoragePointer(hTask, FURI_THREAD_TLS_INDEX);
         if(thread) {
             appid = thread->appid;
         }
