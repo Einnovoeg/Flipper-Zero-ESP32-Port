@@ -2,7 +2,7 @@
 
 #include "scenes/clock_settings_scene.h"
 
-#include <furi_hal_clock.h>
+#include <furi_hal_rtc.h>
 #include <furi_hal_pwm.h>
 
 #include <gui/gui.h>

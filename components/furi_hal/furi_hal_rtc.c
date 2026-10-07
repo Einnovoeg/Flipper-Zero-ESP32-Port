@@ -14,6 +14,10 @@ typedef struct {
     uint32_t pin_value;
     int64_t time_offset;
     int32_t timezone_offset_min;
+    DateTime alarm;
+    bool alarm_enabled;
+    FuriHalRtcAlarmCallback alarm_callback;
+    void* alarm_context;
     FuriHalRtcLocaleTimeFormat locale_timeformat;
     FuriHalRtcLocaleDateFormat locale_dateformat;
     FuriHalRtcLocaleUnits locale_units;
@@ -147,6 +151,25 @@ void furi_hal_rtc_set_timezone_offset(int32_t minutes) {
 
 int32_t furi_hal_rtc_get_timezone_offset(void) {
     return furi_hal_rtc.timezone_offset_min;
+}
+
+void furi_hal_rtc_set_alarm(const DateTime* datetime, bool enable) {
+    if(datetime) {
+        furi_hal_rtc.alarm = *datetime;
+    }
+    furi_hal_rtc.alarm_enabled = enable;
+}
+
+bool furi_hal_rtc_get_alarm(DateTime* datetime) {
+    if(datetime) {
+        *datetime = furi_hal_rtc.alarm;
+    }
+    return furi_hal_rtc.alarm_enabled;
+}
+
+void furi_hal_rtc_set_alarm_callback(FuriHalRtcAlarmCallback callback, void* context) {
+    furi_hal_rtc.alarm_callback = callback;
+    furi_hal_rtc.alarm_context = context;
 }
 
 void furi_hal_rtc_get_datetime(DateTime* datetime) {

@@ -111,6 +111,14 @@ uint32_t furi_hal_rtc_get_timestamp(void);
 void furi_hal_rtc_set_timezone_offset(int32_t minutes);
 int32_t furi_hal_rtc_get_timezone_offset(void);
 
+/** Daily alarm (software stub: this port has no VBAT-backed RTC alarm
+ * peripheral, so time+enabled live in RAM and nothing fires the callback
+ * from hardware; the Clock UI can still set/view the alarm). */
+typedef void (*FuriHalRtcAlarmCallback)(void* context);
+void furi_hal_rtc_set_alarm(const DateTime* datetime, bool enable);
+bool furi_hal_rtc_get_alarm(DateTime* datetime);
+void furi_hal_rtc_set_alarm_callback(FuriHalRtcAlarmCallback callback, void* context);
+
 FuriHalRtcLocaleTimeFormat furi_hal_rtc_get_locale_timeformat(void);
 void furi_hal_rtc_set_locale_timeformat(FuriHalRtcLocaleTimeFormat format);
 FuriHalRtcLocaleDateFormat furi_hal_rtc_get_locale_dateformat(void);
