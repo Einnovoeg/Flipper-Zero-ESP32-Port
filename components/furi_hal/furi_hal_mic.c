@@ -4,8 +4,10 @@
  * no-op stubs for boards without (same structure as furi_hal_speaker.c).
  *
  * Currently only LilyGo T-Embed CC1101 has a mic (BOARD_HAS_MIC, PDM data on
- * BOARD_PIN_MIC_DATA, clock on BOARD_PIN_MIC_CLK). Capture runs on I2S_NUM_1
- * so it never collides with the speaker / MP3 path on I2S_NUM_0.
+ * BOARD_PIN_MIC_DATA, clock on BOARD_PIN_MIC_CLK). Capture runs on I2S_NUM_0
+ * because the ESP32-S3 PDM RX mode is only supported on I2S0 (I2S1 has no PDM
+ * receiver). The speaker also lives on I2S0 but uses Philips TX, and the two
+ * paths are never active at the same time (record vs playback).
  */
 
 #include "furi_hal_mic.h"
@@ -65,12 +67,13 @@ bool furi_hal_mic_start(uint32_t sample_rate) {
     if(mic_rx_handle) return true;
     if(sample_rate == 0) sample_rate = FURI_HAL_MIC_SAMPLE_RATE;
 
-    i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_1, I2S_ROLE_MASTER);
+    i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     chan_cfg.dma_desc_num = MIC_DMA_DESC_NUM;
     chan_cfg.dma_frame_num = MIC_DMA_FRAME_NUM;
     chan_cfg.auto_clear = true;
-    if(i2s_new_channel(&chan_cfg, NULL, &mic_rx_handle) != ESP_OK) {
-        FURI_LOG_E(TAG, "i2s_new_channel failed");
+    esp_err_t err = i2s_new_channel(&chan_cfg, NULL, &mic_rx_handle);
+    if(err != ESP_OK) {
+        FURI_LOG_E(TAG, "i2s_new_channel failed: %s (0x%x)", esp_err_to_name(err), err);
         mic_rx_handle = NULL;
         return false;
     }
@@ -84,15 +87,16 @@ bool furi_hal_mic_start(uint32_t sample_rate) {
             .din = (gpio_num_t)BOARD_PIN_MIC_DATA,
         },
     };
-    esp_err_t err = i2s_channel_init_pdm_rx_mode(mic_rx_handle, &pdm_cfg);
+    err = i2s_channel_init_pdm_rx_mode(mic_rx_handle, &pdm_cfg);
     if(err != ESP_OK) {
         FURI_LOG_E(TAG, "pdm_rx_mode init failed: %s (0x%x)", esp_err_to_name(err), err);
         i2s_del_channel(mic_rx_handle);
         mic_rx_handle = NULL;
         return false;
     }
-    if(i2s_channel_enable(mic_rx_handle) != ESP_OK) {
-        FURI_LOG_E(TAG, "channel enable failed");
+    err = i2s_channel_enable(mic_rx_handle);
+    if(err != ESP_OK) {
+        FURI_LOG_E(TAG, "channel enable failed: %s (0x%x)", esp_err_to_name(err), err);
         i2s_del_channel(mic_rx_handle);
         mic_rx_handle = NULL;
         return false;
