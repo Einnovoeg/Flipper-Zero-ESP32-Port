@@ -38,6 +38,7 @@ APPS = [
     "example_apps_assets",
     "example_number_input",
     "clock",
+    "clock_settings",
     "bad_usb",
     "subghz",
     "cli_subghz",
