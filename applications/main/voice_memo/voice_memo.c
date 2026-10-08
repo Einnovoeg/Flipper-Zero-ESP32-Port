@@ -129,6 +129,8 @@ static int32_t voice_memo_record_thread(void* ctx) {
         } else {
             static int16_t chunk[VOICE_MEMO_CHUNK_FRAMES];
             uint32_t frames = 0;
+            uint32_t max_peak = 0;
+            uint32_t start_tick = furi_get_tick();
             ok = true;
             while(app->worker_run) {
                 size_t got = furi_hal_mic_read(
@@ -146,6 +148,7 @@ static int32_t voice_memo_record_thread(void* ctx) {
                     int v = chunk[i] < 0 ? -chunk[i] : chunk[i];
                     if(v > peak) peak = v;
                 }
+                if((uint32_t)peak > max_peak) max_peak = (uint32_t)peak;
                 frames += got;
                 voice_memo_view_set_recording(
                     app->vm_view,
@@ -153,7 +156,23 @@ static int32_t voice_memo_record_thread(void* ctx) {
                     (uint8_t)((peak * 100) / 32768));
             }
             uint32_t data_bytes = frames * sizeof(int16_t);
-            if(!voice_memo_wav_finalize(f, VOICE_MEMO_SAMPLE_RATE, data_bytes)) {
+            /* The PDM clock does not always land exactly on the requested
+             * rate; measure the true samples/sec we captured and stamp that
+             * into the WAV header so playback runs at the right speed. */
+            uint32_t elapsed_ms = furi_get_tick() - start_tick;
+            uint32_t actual_rate = VOICE_MEMO_SAMPLE_RATE;
+            if(elapsed_ms > 0 && frames > 0) {
+                uint32_t measured = (uint32_t)(((uint64_t)frames * 1000) / elapsed_ms);
+                if(measured >= 8000 && measured <= 48000) actual_rate = measured;
+            }
+            FURI_LOG_I(
+                TAG,
+                "capture: %lu frames in %lu ms -> %lu Hz, peak=%lu/32768",
+                (unsigned long)frames,
+                (unsigned long)elapsed_ms,
+                (unsigned long)actual_rate,
+                (unsigned long)max_peak);
+            if(!voice_memo_wav_finalize(f, actual_rate, data_bytes)) {
                 FURI_LOG_E(TAG, "cannot finalize wav");
                 ok = false;
             }
@@ -197,7 +216,7 @@ static int32_t voice_memo_play_thread(void* ctx) {
 
     uint32_t total_frames = data_bytes / (ch * bits / 8);
     uint32_t total_sec = rate ? total_frames / rate : 0;
-    mp3_i2s_set_volume(80);
+    mp3_i2s_set_volume(100);
     if(!mp3_i2s_init(rate ? rate : VOICE_MEMO_SAMPLE_RATE)) {
         FURI_LOG_E(TAG, "speaker busy");
         storage_file_close(f);

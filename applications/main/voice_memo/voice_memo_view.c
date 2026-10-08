@@ -5,6 +5,7 @@
 #include <input/input.h>
 #include <string.h>
 #include <stdio.h>
+#include "../streaming/mp3_i2s.h"
 
 struct VoiceMemoRecordView {
     View* view;
@@ -19,6 +20,7 @@ typedef struct {
     uint32_t total_sec;
     uint8_t pct; /* level (record) or progress (play) */
     bool stopped;
+    uint8_t volume; /* playback volume 0..100 */
 } VoiceMemoModel;
 
 static void voice_memo_draw(Canvas* canvas, void* ctx) {
@@ -59,12 +61,39 @@ static void voice_memo_draw(Canvas* canvas, void* ctx) {
         canvas_draw_str(canvas, 2, 54, m->stopped ? "Ok: back" : "Ok/Back: stop");
     } else {
         canvas_draw_str(canvas, 2, 54, m->stopped ? "Ok: back" : "Ok/Back: stop");
+        if(!m->stopped) {
+            char vol[10];
+            snprintf(vol, sizeof(vol), "V%3u", (unsigned)m->volume);
+            canvas_draw_str(canvas, 104, 54, vol);
+        }
     }
     canvas_draw_str(canvas, 2, 63, "Hold Back: home");
 }
 
 static bool voice_memo_input(InputEvent* event, void* ctx) {
     VoiceMemoRecordView* view = ctx;
+
+    /* Volume up/down while a memo is playing. */
+    if((event->type == InputTypeShort || event->type == InputTypeRepeat) &&
+       (event->key == InputKeyUp || event->key == InputKeyDown)) {
+        bool handled = false;
+        with_view_model(
+            view->view,
+            VoiceMemoModel * m,
+            {
+                if(m->mode == VoiceMemoViewModePlay && !m->stopped) {
+                    int v = (int)m->volume + (event->key == InputKeyUp ? +10 : -10);
+                    if(v < 0) v = 0;
+                    if(v > 100) v = 100;
+                    m->volume = (uint8_t)v;
+                    mp3_i2s_set_volume(m->volume);
+                    handled = true;
+                }
+            },
+            true);
+        if(handled) return true;
+    }
+
     if(!view->stop_cb) return false;
     if((event->type == InputTypeShort) &&
        (event->key == InputKeyOk || event->key == InputKeyBack)) {
@@ -87,6 +116,7 @@ VoiceMemoRecordView* voice_memo_view_alloc(void) {
         {
             memset(m, 0, sizeof(*m));
             m->mode = VoiceMemoViewModeRecord;
+            m->volume = 100;
         },
         false);
     view->stop_cb = NULL;
@@ -107,7 +137,14 @@ View* voice_memo_view_get_view(VoiceMemoRecordView* view) {
 
 void voice_memo_view_set_mode(VoiceMemoRecordView* view, VoiceMemoViewMode mode) {
     with_view_model(
-        view->view, VoiceMemoModel * m, { m->mode = mode; m->stopped = false; }, true);
+        view->view,
+        VoiceMemoModel * m,
+        {
+            m->mode = mode;
+            m->stopped = false;
+            if(mode == VoiceMemoViewModePlay) m->volume = 100;
+        },
+        true);
 }
 
 void voice_memo_view_set_file(VoiceMemoRecordView* view, const char* name) {

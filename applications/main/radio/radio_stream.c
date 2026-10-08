@@ -103,14 +103,19 @@ bool radio_stream_play(RadioApp* app, const char* url) {
     esp_http_client_set_header(client, "Icy-MetaData", "1");
     esp_http_client_set_header(client, "User-Agent", "FlipperZero-Radio/1.0");
 
-    if(esp_http_client_open(client, 0) != ESP_OK) {
+    esp_err_t open_err = esp_http_client_open(client, 0);
+    if(open_err != ESP_OK) {
+        FURI_LOG_E(TAG, "open failed: %s (0x%x) url=%s", esp_err_to_name(open_err), open_err,
+                   url);
         esp_http_client_cleanup(client);
         return false;
     }
     int status = esp_http_client_get_status_code(client);
     int64_t content_len = esp_http_client_get_content_length(client);
     (void)content_len;
+    FURI_LOG_I(TAG, "HTTP status=%d len=%lld", status, (long long)content_len);
     if(status < 200 || status >= 300) {
+        FURI_LOG_E(TAG, "unexpected status, aborting");
         esp_http_client_close(client);
         esp_http_client_cleanup(client);
         return false;
@@ -150,12 +155,16 @@ bool radio_stream_play(RadioApp* app, const char* url) {
     while(app->worker_run) {
         int n = esp_http_client_read(client, (char*)net_buf, sizeof(net_buf));
         if(n < 0) {
-            FURI_LOG_W(TAG, "stream read error");
+            FURI_LOG_W(TAG, "stream read error (n=%d)", n);
             break;
         }
         if(n == 0) {
             /* End of stream. */
+            FURI_LOG_W(TAG, "stream ended (n=0)");
             break;
+        }
+        if(!played_anything && frame_left == 0) {
+            FURI_LOG_I(TAG, "first read n=%d", n);
         }
         size_t audio_len = radio_icy_filter(&st, net_buf, (size_t)n, audio_buf);
         if(frame_left + audio_len > sizeof(frame_buf)) {
