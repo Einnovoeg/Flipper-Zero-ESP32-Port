@@ -34,3 +34,10 @@ typedef enum {
     ClockSettingsCustomEventTimezone,
     ClockSettingsCustomEventTimezoneSaved,
 } ClockSettingsCustomEvent;
+
+/* Alarm tone presets — implemented in clock_settings_alarm.c (the alarm
+ * service also owns persistence of the armed time + tone under /int). */
+#define CLOCK_SETTINGS_TONE_COUNT 4
+uint8_t clock_settings_get_tone(void);
+void clock_settings_set_tone(uint8_t tone);
+const char* clock_settings_tone_name(uint8_t tone);

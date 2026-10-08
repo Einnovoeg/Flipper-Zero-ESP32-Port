@@ -5,6 +5,8 @@
 
 #include <esp_log.h>
 #include <esp_rom_uart.h>
+#include <esp_system.h>
+#include <esp_timer.h>
 
 static const char* TAG = "Main";
 
@@ -113,6 +115,34 @@ static void furi_log_esp_callback(const uint8_t* data, size_t size, void* contex
     }
 }
 
+/* 60 s heartbeat + boot reset reason: when the console stream dies these two
+ * lines bracket the exact moment of the periodic ~5 min reset (and the reset
+ * cause of this boot, e.g. 4=panic, 9=brownout, 11=usb). */
+static void app_heartbeat_callback(void* arg) {
+    (void)arg;
+    ESP_LOGI(
+        TAG,
+        "hb uptime=%lld s reset=%d",
+        (long long)(esp_timer_get_time() / 1000000LL),
+        (int)esp_reset_reason());
+}
+
+static void app_arm_diagnostics(void) {
+    ESP_LOGI(
+        TAG,
+        "boot reset reason=%d (1=power 2=ext 3=sw 4=panic 5/6/7=wdt 8=deep 9=brown 11=usb 12=jtag)",
+        (int)esp_reset_reason());
+
+    esp_timer_handle_t hb = NULL;
+    const esp_timer_create_args_t args = {
+        .callback = app_heartbeat_callback,
+        .name = "app_hb",
+    };
+    if(esp_timer_create(&args, &hb) == ESP_OK) {
+        esp_timer_start_periodic(hb, 60ULL * 1000000ULL);
+    }
+}
+
 void app_main(void) {
     ESP_LOGI(TAG, "Starting Furi Core on ESP32...");
 
@@ -125,6 +155,8 @@ void app_main(void) {
         .context = NULL,
     };
     furi_log_add_handler(log_handler);
+
+    app_arm_diagnostics();
 
     furi_hal_init_early();
     furi_hal_init();

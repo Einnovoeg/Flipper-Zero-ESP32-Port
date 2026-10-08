@@ -4,6 +4,7 @@
 typedef enum {
     ClockSettingsStartBacklight,
     ClockSettingsStartTimezone,
+    ClockSettingsStartTone,
 } ClockSettingsStartIndex;
 
 static void clock_settings_start_callback(void* context, uint32_t index) {
@@ -21,6 +22,8 @@ void clock_settings_scene_start_on_enter(void* context) {
     submenu_add_item(
         app->submenu, "Timezone", ClockSettingsStartTimezone, clock_settings_start_callback,
         app);
+    submenu_add_item(
+        app->submenu, "Alarm tone", ClockSettingsStartTone, clock_settings_start_callback, app);
     submenu_set_selected_item(app->submenu, 0);
     view_dispatcher_switch_to_view(app->view_dispatcher, ClockSettingsViewSubmenu);
 }
@@ -34,6 +37,10 @@ bool clock_settings_scene_start_on_event(void* context, SceneManagerEvent event)
     }
     if(event.event == ClockSettingsStartTimezone) {
         scene_manager_next_scene(app->scene_manager, ClockSettingsSceneTimezone);
+        return true;
+    }
+    if(event.event == ClockSettingsStartTone) {
+        scene_manager_next_scene(app->scene_manager, ClockSettingsSceneTone);
         return true;
     }
     return false;
