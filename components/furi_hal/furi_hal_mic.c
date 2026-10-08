@@ -26,8 +26,12 @@
 #include <driver/gpio.h>
 #include <esp_heap_caps.h>
 
-#define MIC_DMA_DESC_NUM  6
-#define MIC_DMA_FRAME_NUM 256
+/* 16 descriptors x 512 frames = 8192 frames of cushion (~512 ms at 16 kHz).
+ * The previous 6 x 256 geometry (96 ms) overflowed whenever a single SD write
+ * in the record loop stalled longer than that: the DMA discards samples
+ * silently, the take comes out subsampled, and playback runs slow. */
+#define MIC_DMA_DESC_NUM  16
+#define MIC_DMA_FRAME_NUM 512
 
 static FuriMutex* mic_mutex = NULL;
 static i2s_chan_handle_t mic_rx_handle = NULL;

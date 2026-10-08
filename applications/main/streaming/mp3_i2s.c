@@ -19,8 +19,9 @@
 #define DMA_FRAME_NUM  CHUNK_FRAMES
 
 /* Ring buffer holding decoded stereo samples (int16 L,R interleaved).
- * Sized for ~250 ms of audio at 44.1 kHz to absorb SD-read jitter. */
-#define RB_FRAMES      11025  /* ~64 KB stereo @ int16 */
+ * Sized for ~2.5 s of audio at 44.1 kHz (~441 KB in PSRAM) — the old
+ * 250 ms buffer underran on network jitter and made radio playback choppy. */
+#define RB_FRAMES      110250
 
 static i2s_chan_handle_t i2s_tx       = NULL;
 static FuriThread*       writer_thread = NULL;
@@ -38,7 +39,8 @@ static size_t   rb_count = 0; /* frames currently held */
 /* DMA-capable scratch the writer pulls into. */
 static int16_t* tx_buf = NULL;
 
-static volatile uint8_t  cur_volume = 80;  /* 0..100 */
+static volatile uint8_t  cur_volume = 80;  /* 0..150 (above 100 = saturating boost) */
+static volatile uint32_t out_expected_rate = 0;
 
 static inline int16_t apply_gain(int16_t s, uint8_t vol) {
     /* Linear gain — fast enough for 4608 samples per Helix frame. */
@@ -50,6 +52,13 @@ static inline int16_t apply_gain(int16_t s, uint8_t vol) {
 
 static int32_t mp3_i2s_writer_task(void* ctx) {
     (void)ctx;
+
+    /* Output-rate probe: i2s_channel_write paces itself against the DMA/hardware
+     * clock, so frames actually written per wall second IS the true playback
+     * rate. Deviations expose I2S clock-config bugs (wrong speed = wrong pitch). */
+    uint32_t win_frames = 0;
+    uint32_t win_start = furi_get_tick();
+    uint32_t win_index = 0;
 
     while(writer_run) {
         /* Pull up to CHUNK_FRAMES from the ring buffer. If empty, output
@@ -82,6 +91,27 @@ static int32_t mp3_i2s_writer_task(void* ctx) {
 
         size_t written = 0;
         i2s_channel_write(i2s_tx, tx_buf, CHUNK_FRAMES * 2 * sizeof(int16_t), &written, 200);
+
+        if(out_expected_rate) {
+            win_frames += (uint32_t)(written / (2 * sizeof(int16_t)));
+            uint32_t elapsed = furi_get_tick() - win_start;
+            if(elapsed >= 5000) {
+                uint32_t actual = (uint32_t)(((uint64_t)win_frames * 1000) / elapsed);
+                int32_t dev_pct = (int32_t)(((int64_t)actual - (int64_t)out_expected_rate) *
+                                            100 / (int64_t)out_expected_rate);
+                if(win_index < 3 || dev_pct > 3 || dev_pct < -3) {
+                    FURI_LOG_I(
+                        TAG,
+                        "out %lu Hz vs %lu expected (%ld%%)",
+                        (unsigned long)actual,
+                        (unsigned long)out_expected_rate,
+                        (long)dev_pct);
+                }
+                win_index++;
+                win_frames = 0;
+                win_start = furi_get_tick();
+            }
+        }
 
         /* If we got nothing this round, sleep briefly so we don't spin while
          * the decoder is still warming up (e.g. between tracks). */
@@ -148,6 +178,7 @@ bool mp3_i2s_init(uint32_t sample_rate) {
     if(i2s_channel_enable(i2s_tx) != ESP_OK)                   goto err_std;
 
     writer_run = true;
+    out_expected_rate = sample_rate;
     writer_thread = furi_thread_alloc_ex("Mp3I2S", 4096, mp3_i2s_writer_task, NULL);
     furi_thread_set_priority(writer_thread, FuriThreadPriorityHigh);
     furi_thread_start(writer_thread);
@@ -195,11 +226,14 @@ void mp3_i2s_set_sample_rate(uint32_t sample_rate) {
     i2s_std_clk_config_t clk = I2S_STD_CLK_DEFAULT_CONFIG(sample_rate);
     i2s_channel_reconfig_std_clock(i2s_tx, &clk);
     i2s_channel_enable(i2s_tx);
+    out_expected_rate = sample_rate;
     FURI_LOG_I(TAG, "sample rate -> %lu Hz", (unsigned long)sample_rate);
 }
 
 void mp3_i2s_set_volume(uint8_t volume) {
-    if(volume > 100) volume = 100;
+    /* 101..150 is a saturating boost above unity: the T-Embed amp is
+     * hardware-strapped to only 6 dB gain, so quiet sources need it. */
+    if(volume > 150) volume = 150;
     cur_volume = volume;
 }
 

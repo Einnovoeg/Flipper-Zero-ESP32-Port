@@ -42,9 +42,9 @@ typedef struct {
     char name_or_path[128];
 } FavoriteApp;
 
-/** Color themes (index into desktop_color_themes in desktop_settings.c).
- * Theme 0 is the classic Flipper orange. All values are board-native RGB565
- * (same byte order convention as BOARD_LCD_FG/BG_COLOR). */
+/** Color themes: named presets the Interface settings picker offers. The
+ * picker maps them onto the notification UI colors (the source of truth
+ * for the LCD fg/bg) — see color_theme_changed in interface_settings_app.c. */
 typedef enum {
     DesktopThemeOrange = 0,
     DesktopThemeGreen,
@@ -73,8 +73,9 @@ void desktop_settings_save(const DesktopSettings* settings);
 /** Human-readable name for a theme index (clamped to Orange). */
 const char* desktop_color_theme_name(uint8_t theme);
 
-/** Apply settings->displayTheme to the LCD (clamped). Called at boot and
- * whenever the Interface settings change it. */
+/** Re-apply the notification UI colors (the single source of truth for
+ * fg/bg). Called at boot and whenever settings are saved, so a user-chosen
+ * custom color is never clobbered by the desktop theme. */
 void desktop_settings_apply_theme(const DesktopSettings* settings);
 
 #ifdef __cplusplus

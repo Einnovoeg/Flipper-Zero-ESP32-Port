@@ -31,7 +31,8 @@ void mp3_i2s_deinit(void);
 /* Reconfigure the I2S sample rate (cheap, no DMA reallocation). */
 void mp3_i2s_set_sample_rate(uint32_t sample_rate);
 
-/* Software-gain in 0..100 (volume %). Applied in the writer loop. */
+/* Software-gain in 0..150 (%). 101..150 is a saturating boost above unity.
+ * Applied in the writer loop. */
 void mp3_i2s_set_volume(uint8_t volume);
 
 /* Push n_frames stereo int16 samples (2*n_frames * sizeof(int16_t) bytes)

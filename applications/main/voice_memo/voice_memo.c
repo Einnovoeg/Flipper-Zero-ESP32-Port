@@ -21,6 +21,7 @@
 
 #define VOICE_MEMO_SAMPLE_RATE 16000
 #define VOICE_MEMO_CHUNK_FRAMES 512
+#define VOICE_MEMO_STAGE_FRAMES 8192 /* 16 KB = 0.5 s @ 16 kHz before an SD write */
 #define VOICE_MEMO_WORKER_STACK 4096
 /* Record gain: mic peaks measured ~-6 dBFS (16227/32768), so x2 lands peaks
  * at full scale with no practical clipping of speech. Raise to 3 only if the
@@ -132,13 +133,26 @@ static int32_t voice_memo_record_thread(void* ctx) {
             FURI_LOG_E(TAG, "cannot create %s", app->file_path);
         } else {
             static int16_t chunk[VOICE_MEMO_CHUNK_FRAMES];
+            /* Stage 0.5 s of audio before touching the SD card. Writing every
+             * 1 KB stalled the loop ~60 ms per call, the mic DMA ring
+             * overflowed, and the take came out subsampled (slow playback).
+             * One 16 KB write per ~0.5 s keeps the loop ahead of the DMA. */
+            static int16_t stage[VOICE_MEMO_STAGE_FRAMES];
+            size_t stage_n = 0;
             uint32_t frames = 0;
             uint32_t max_peak = 0;
             uint32_t start_tick = furi_get_tick();
+            uint32_t log_tick = start_tick;
+            uint32_t view_tick = start_tick;
+            uint32_t win_frames = 0;
+            uint32_t max_read_ms = 0, max_write_ms = 0;
             ok = true;
             while(app->worker_run) {
+                uint32_t t0 = furi_get_tick();
                 size_t got = furi_hal_mic_read(
                     chunk, VOICE_MEMO_CHUNK_FRAMES, 200);
+                uint32_t read_ms = furi_get_tick() - t0;
+                if(read_ms > max_read_ms) max_read_ms = read_ms;
                 if(got == 0) continue;
                 /* Level = peak of the RAW chunk (input diagnostic), then apply
                  * the record gain before the samples hit the SD card. */
@@ -151,18 +165,56 @@ static int32_t voice_memo_record_thread(void* ctx) {
                     if(g < -32768) g = -32768;
                     chunk[i] = (int16_t)g;
                 }
-                if(storage_file_write(f, chunk, got * sizeof(int16_t)) !=
-                   got * sizeof(int16_t)) {
-                    FURI_LOG_E(TAG, "SD write failed");
-                    ok = false;
-                    break;
+                /* Flush before appending so the staging buffer can never
+                 * overrun (got varies with partial reads). */
+                if(stage_n + got > VOICE_MEMO_STAGE_FRAMES) {
+                    uint32_t tw0 = furi_get_tick();
+                    size_t nbytes = stage_n * sizeof(int16_t);
+                    if(storage_file_write(f, stage, nbytes) != nbytes) {
+                        FURI_LOG_E(TAG, "SD write failed");
+                        ok = false;
+                        break;
+                    }
+                    uint32_t write_ms = furi_get_tick() - tw0;
+                    if(write_ms > max_write_ms) max_write_ms = write_ms;
+                    stage_n = 0;
                 }
+                memcpy(&stage[stage_n], chunk, got * sizeof(int16_t));
+                stage_n += got;
                 if((uint32_t)peak > max_peak) max_peak = (uint32_t)peak;
                 frames += got;
-                voice_memo_view_set_recording(
-                    app->vm_view,
-                    frames / VOICE_MEMO_SAMPLE_RATE,
-                    (uint8_t)((peak * 100) / 32768));
+                win_frames += got;
+                uint32_t now = furi_get_tick();
+                if(now - log_tick >= 1000) {
+                    uint32_t rate =
+                        (uint32_t)(((uint64_t)win_frames * 1000) / (now - log_tick));
+                    FURI_LOG_I(
+                        TAG,
+                        "rec %lu Hz want %d (read_max %lu ms, write_max %lu ms)",
+                        (unsigned long)rate,
+                        VOICE_MEMO_SAMPLE_RATE,
+                        (unsigned long)max_read_ms,
+                        (unsigned long)max_write_ms);
+                    log_tick = now;
+                    win_frames = 0;
+                    max_read_ms = max_write_ms = 0;
+                }
+                if(now - view_tick >= 250) {
+                    /* Redraw at 4 Hz: the full-screen repaint took CPU time
+                     * that the capture loop could not spare. */
+                    voice_memo_view_set_recording(
+                        app->vm_view,
+                        frames / VOICE_MEMO_SAMPLE_RATE,
+                        (uint8_t)((peak * 100) / 32768));
+                    view_tick = now;
+                }
+            }
+            if(ok && stage_n > 0) {
+                size_t nbytes = stage_n * sizeof(int16_t);
+                if(storage_file_write(f, stage, nbytes) != nbytes) {
+                    FURI_LOG_E(TAG, "SD write failed (flush)");
+                    ok = false;
+                }
             }
             uint32_t data_bytes = frames * sizeof(int16_t);
             /* The PDM clock does not always land exactly on the requested
@@ -225,7 +277,7 @@ static int32_t voice_memo_play_thread(void* ctx) {
 
     uint32_t total_frames = data_bytes / (ch * bits / 8);
     uint32_t total_sec = rate ? total_frames / rate : 0;
-    mp3_i2s_set_volume(100);
+    mp3_i2s_set_volume(150);
     if(!mp3_i2s_init(rate ? rate : VOICE_MEMO_SAMPLE_RATE)) {
         FURI_LOG_E(TAG, "speaker busy");
         storage_file_close(f);

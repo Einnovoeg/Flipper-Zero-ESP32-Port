@@ -22,15 +22,12 @@ typedef enum {
 
 /* Submenu custom events. */
 typedef enum {
+    RadioEventGenreBase = 100, /* + genre index (level-0 menu) */
+    RadioEventBackToGenres = 150,
     RadioEventCustomURL = 200,
-    RadioEventStationBase = 300, /* + station index */
+    RadioEventStationBase = 300, /* + station index within the genre */
     RadioEventStop = 400,
 } RadioEvent;
-
-typedef struct {
-    char name[RADIO_NAME_LEN];
-    char url[RADIO_URL_LEN];
-} RadioStation;
 
 typedef struct RadioApp {
     Gui* gui;
@@ -41,8 +38,9 @@ typedef struct RadioApp {
     RadioPlayerView* player_view;
     FuriThread* worker;
     volatile bool worker_run;
-    RadioStation stations[RADIO_MAX_STATIONS];
-    uint8_t station_count;
+    uint8_t menu_level; /* 0 = genre list, 1 = stations of cur_genre */
+    uint8_t cur_genre;
+    uint8_t current_view; /* RadioView — tracked for Back handling */
     char header[48];
     char status[48];
     uint8_t volume;

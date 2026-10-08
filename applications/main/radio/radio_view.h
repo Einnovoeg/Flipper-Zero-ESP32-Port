@@ -12,7 +12,7 @@ RadioPlayerView* radio_view_alloc(void);
 void radio_view_free(RadioPlayerView* view);
 View* radio_view_get_view(RadioPlayerView* view);
 
-/* station/title shown; elapsed_sec ticks while playing; volume 0..100;
+/* station/title shown; elapsed_sec ticks while playing; volume 0..150;
  * state text is a short status line ("Buffering...", "Playing", "Stopped"). */
 void radio_view_set_station(RadioPlayerView* view, const char* station);
 void radio_view_set_track(RadioPlayerView* view, const char* title);

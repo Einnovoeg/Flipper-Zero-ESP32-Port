@@ -58,7 +58,8 @@ static bool radio_input(InputEvent* event, void* ctx) {
     }
     if(event->key == InputKeyUp || event->key == InputKeyDown) {
         if(view->vol_cb) {
-            view->vol_cb(view->vol_ctx, event->key == InputKeyUp ? 5 : -5);
+            /* Knob feel: CW (Down) turns volume UP. */
+            view->vol_cb(view->vol_ctx, event->key == InputKeyDown ? 5 : -5);
         }
         return true;
     }

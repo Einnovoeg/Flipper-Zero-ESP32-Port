@@ -20,7 +20,7 @@ typedef struct {
     uint32_t total_sec;
     uint8_t pct; /* level (record) or progress (play) */
     bool stopped;
-    uint8_t volume; /* playback volume 0..100 */
+    uint8_t volume; /* playback volume 0..150 (>100 = saturating boost) */
 } VoiceMemoModel;
 
 static void voice_memo_draw(Canvas* canvas, void* ctx) {
@@ -85,7 +85,7 @@ static bool voice_memo_input(InputEvent* event, void* ctx) {
                     /* Knob feel, not menu feel: clockwise (Down) turns UP. */
                     int v = (int)m->volume + (event->key == InputKeyDown ? +10 : -10);
                     if(v < 0) v = 0;
-                    if(v > 100) v = 100;
+                    if(v > 150) v = 150;
                     m->volume = (uint8_t)v;
                     mp3_i2s_set_volume(m->volume);
                     handled = true;
@@ -117,7 +117,7 @@ VoiceMemoRecordView* voice_memo_view_alloc(void) {
         {
             memset(m, 0, sizeof(*m));
             m->mode = VoiceMemoViewModeRecord;
-            m->volume = 100;
+            m->volume = 150;
         },
         false);
     view->stop_cb = NULL;
@@ -143,7 +143,7 @@ void voice_memo_view_set_mode(VoiceMemoRecordView* view, VoiceMemoViewMode mode)
         {
             m->mode = mode;
             m->stopped = false;
-            if(mode == VoiceMemoViewModePlay) m->volume = 100;
+            if(mode == VoiceMemoViewModePlay) m->volume = 150;
         },
         true);
 }

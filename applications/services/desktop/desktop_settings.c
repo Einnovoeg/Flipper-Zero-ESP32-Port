@@ -3,7 +3,7 @@
 
 #include <saved_struct.h>
 #include <storage/storage.h>
-#include <furi_hal_display.h>
+#include <notification/notification_app.h>
 
 #define TAG "DesktopSettings"
 
@@ -131,24 +131,6 @@ void desktop_settings_save(const DesktopSettings* settings) {
     }
 }
 
-/* Color themes: (fg, bg) in board-native RGB565 order (same convention as
- * BOARD_LCD_FG/BG_COLOR). fg fills unset pixels (screen background),
- * bg fills set pixels (UI elements). */
-typedef struct {
-    uint16_t fg;
-    uint16_t bg;
-} DesktopColorTheme;
-
-static const DesktopColorTheme desktop_color_themes[DesktopThemeCount] = {
-    [DesktopThemeOrange] = {0xA0FD, 0x0000}, /* Flipper orange / black */
-    [DesktopThemeGreen] = {0xE007, 0x0000}, /* green / black */
-    [DesktopThemeAmber] = {0x60FD, 0x0000}, /* amber / black */
-    [DesktopThemeCyan] = {0xFF07, 0x0000}, /* cyan / black */
-    [DesktopThemeRed] = {0x00F8, 0x0000}, /* red / black */
-    [DesktopThemeWhite] = {0xFFFF, 0x0000}, /* white / black */
-    [DesktopThemeInvert] = {0x0000, 0xFFFF}, /* black / white (dark mode) */
-};
-
 const char* desktop_color_theme_name(uint8_t theme) {
     switch(theme) {
     case DesktopThemeOrange:
@@ -172,8 +154,14 @@ const char* desktop_color_theme_name(uint8_t theme) {
 
 void desktop_settings_apply_theme(const DesktopSettings* settings) {
     furi_assert(settings);
-    uint8_t theme = settings->displayTheme;
-    if(theme >= DesktopThemeCount) theme = DesktopThemeOrange;
-    furi_hal_display_set_fg_color(desktop_color_themes[theme].fg);
-    furi_hal_display_set_bg_color(desktop_color_themes[theme].bg);
+    (void)settings;
+    /* The notification service owns the UI colors (Sound & Display >
+     * UI Background/Foreground). The old displayTheme palette wrote fg/bg
+     * directly here and clobbered a user-chosen custom color ~2 s after
+     * boot (and again on every settings save). Re-apply the notification
+     * colors instead; displayTheme is written through to them by the
+     * Interface > Color theme picker. */
+    NotificationApp* n = furi_record_open(RECORD_NOTIFICATION);
+    notification_apply_ui_color(n);
+    furi_record_close(RECORD_NOTIFICATION);
 }

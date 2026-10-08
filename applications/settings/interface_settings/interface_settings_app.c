@@ -6,6 +6,7 @@
 #include <lib/toolbox/value_index.h>
 #include <desktop/desktop.h>
 #include <desktop/desktop_settings.h>
+#include <notification/notification_app.h>
 #include <power/power_service/power.h>
 
 #define INTERFACE_SETTINGS_VIEW_LIST (0)
@@ -82,6 +83,15 @@ static void lock_screen_style_changed(VariableItem* item) {
     lock_screen_set_style((LockScreenStyle)index);
 }
 
+/* displayTheme -> notification UI colors (bg = field, fg = drawn elements).
+ * Notification preset indices: 0 Black, 1 Orange, 2 Red, 3 Green, 5 Cyan,
+ * 7 Yellow, 8 White (see ui_color_value[] in notification.c). */
+static const uint8_t theme_to_ui_bg[DesktopThemeCount] = {
+    1 /*Orange*/, 3 /*Green*/, 7 /*Amber≈Yellow*/, 5 /*Cyan*/,
+    2 /*Red*/,    8 /*White*/, 0 /*Invert: black field*/};
+static const uint8_t theme_to_ui_fg[DesktopThemeCount] = {
+    0, 0, 0, 0, 0, 0, 8 /*Invert: white elements*/};
+
 static void color_theme_changed(VariableItem* item) {
     uint8_t index = variable_item_get_current_value_index(item);
     variable_item_set_current_value_text(item, desktop_color_theme_name(index));
@@ -93,6 +103,17 @@ static void color_theme_changed(VariableItem* item) {
     desktop_api_set_settings(desktop, settings);
     free(settings);
     furi_record_close(RECORD_DESKTOP);
+
+    /* Write the theme through to the notification UI colors — they are the
+     * one source of truth the LCD fg/bg actually follow. Without this the
+     * picker had no visible effect (desktop_settings_apply_theme now always
+     * re-applies the notification colors). */
+    NotificationApp* n = furi_record_open(RECORD_NOTIFICATION);
+    n->settings.ui_color_index = theme_to_ui_bg[index];
+    n->settings.ui_fg_color_index = theme_to_ui_fg[index];
+    notification_message_save_settings(n);
+    notification_apply_ui_color(n);
+    furi_record_close(RECORD_NOTIFICATION);
 }
 
 static uint32_t interface_settings_exit(void* context) {

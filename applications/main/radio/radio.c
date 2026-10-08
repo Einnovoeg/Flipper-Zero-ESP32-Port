@@ -13,19 +13,84 @@
 
 #define TAG "Radio"
 
-static const RadioStation radio_default_stations[] = {
-    {"Groove Salad", "http://ice1.somafm.com/groovesalad-128-mp3"},
-    {"Drone Zone", "http://ice1.somafm.com/dronezone-128-mp3"},
-    {"Secret Agent", "http://ice1.somafm.com/secretagent-128-mp3"},
-    {"Deep Space One", "http://ice1.somafm.com/deepspaceone-128-mp3"},
-    {"Boot Liquor", "http://ice1.somafm.com/bootliquor-128-mp3"},
-    {"Vaporwaves", "http://ice1.somafm.com/vaporwaves-128-mp3"},
-    {"Metal Detector", "http://ice1.somafm.com/metal-128-mp3"},
+/* Two-level menu: genres at level 0, stations of the selected genre at
+ * level 1. Stream URLs follow the official SomaFM playlist slugs
+ * (api.somafm.com/<slug>.pls -> http://ice1.somafm.com/<slug>-128-mp3). */
+typedef struct {
+    const char* name;
+    const char* url;
+} RadioStationDef;
+
+typedef struct {
+    const char* name;
+    const RadioStationDef* stations;
+    uint8_t count;
+} RadioGenreDef;
+
+#define STATION_DEF(name, slug) \
+    {name, "http://ice1.somafm.com/" slug "-128-mp3"}
+
+static const RadioStationDef genre_ambient[] = {
+    STATION_DEF("Drone Zone", "dronezone"),
+    STATION_DEF("Deep Space One", "deepspaceone"),
+    STATION_DEF("DEF CON Radio", "defcon"),
+    STATION_DEF("Mission Control", "missioncontrol"),
 };
+
+static const RadioStationDef genre_downtempo[] = {
+    STATION_DEF("Groove Salad", "groovesalad"),
+    STATION_DEF("Vaporwaves", "vaporwaves"),
+    STATION_DEF("Fluid", "fluid"),
+    STATION_DEF("Beat Blender", "beatblender"),
+};
+
+static const RadioStationDef genre_lounge[] = {
+    STATION_DEF("Illinois Street Lounge", "illstreet"),
+    STATION_DEF("Left Coast 70s", "seventies"),
+    STATION_DEF("Secret Agent", "secretagent"),
+    STATION_DEF("Lush", "lush"),
+};
+
+static const RadioStationDef genre_electronic[] = {
+    STATION_DEF("The Trip", "thetrip"),
+    STATION_DEF("cliqhop IDM", "cliqhop"),
+    STATION_DEF("Dub Step Beyond", "dubstep"),
+    STATION_DEF("Dark Zone", "darkzone"),
+};
+
+static const RadioStationDef genre_poprock[] = {
+    STATION_DEF("Boot Liquor", "bootliquor"),
+    STATION_DEF("PopTron", "poptron"),
+    STATION_DEF("Underground 80s", "u80s"),
+    STATION_DEF("Indie Pop", "indiepop"),
+};
+
+static const RadioStationDef genre_metal[] = {
+    STATION_DEF("Metal Detector", "metal"),
+    STATION_DEF("Doomed", "doomed"),
+};
+
+#define GENRE_COUNT(a) (sizeof(a) / sizeof((a)[0]))
+
+static const RadioGenreDef radio_genres[] = {
+    {"Ambient", genre_ambient, GENRE_COUNT(genre_ambient)},
+    {"Downtempo", genre_downtempo, GENRE_COUNT(genre_downtempo)},
+    {"Lounge", genre_lounge, GENRE_COUNT(genre_lounge)},
+    {"Electronic", genre_electronic, GENRE_COUNT(genre_electronic)},
+    {"Pop / Rock", genre_poprock, GENRE_COUNT(genre_poprock)},
+    {"Metal", genre_metal, GENRE_COUNT(genre_metal)},
+};
+
+#define RADIO_GENRE_COUNT (sizeof(radio_genres) / sizeof(radio_genres[0]))
 
 static void radio_menu_callback(void* context, uint32_t index) {
     RadioApp* app = context;
     view_dispatcher_send_custom_event(app->dispatcher, index);
+}
+
+static void radio_switch(RadioApp* app, RadioView view) {
+    app->current_view = view;
+    view_dispatcher_switch_to_view(app->dispatcher, view);
 }
 
 static void radio_rebuild_menu(RadioApp* app, const char* status) {
@@ -33,26 +98,32 @@ static void radio_rebuild_menu(RadioApp* app, const char* status) {
     if(status && status[0]) {
         strncpy(app->header, status, sizeof(app->header) - 1);
         app->header[sizeof(app->header) - 1] = '\0';
-    } else if(app->station_count == 0) {
-        snprintf(app->header, sizeof(app->header), "No stations");
+    } else if(app->menu_level == 0) {
+        snprintf(app->header, sizeof(app->header), "%u genres", (unsigned)RADIO_GENRE_COUNT);
     } else {
+        const RadioGenreDef* g = &radio_genres[app->cur_genre];
         snprintf(
-            app->header, sizeof(app->header), "%u station%s", (unsigned)app->station_count,
-            app->station_count == 1 ? "" : "s");
+            app->header, sizeof(app->header), "%s (%u)", g->name, (unsigned)g->count);
     }
     submenu_set_header(app->submenu, app->header);
-    for(uint8_t i = 0; i < app->station_count; i++) {
+    if(app->menu_level == 0) {
+        for(uint8_t i = 0; i < RADIO_GENRE_COUNT; i++) {
+            submenu_add_item(
+                app->submenu, radio_genres[i].name, RadioEventGenreBase + i,
+                radio_menu_callback, app);
+        }
         submenu_add_item(
-            app->submenu, app->stations[i].name, RadioEventStationBase + i,
-            radio_menu_callback, app);
+            app->submenu, "Custom URL...", RadioEventCustomURL, radio_menu_callback, app);
+    } else {
+        const RadioGenreDef* g = &radio_genres[app->cur_genre];
+        for(uint8_t i = 0; i < g->count; i++) {
+            submenu_add_item(
+                app->submenu, g->stations[i].name, RadioEventStationBase + i,
+                radio_menu_callback, app);
+        }
+        submenu_add_item(
+            app->submenu, "< All genres", RadioEventBackToGenres, radio_menu_callback, app);
     }
-    submenu_add_item(
-        app->submenu, "Custom URL...", RadioEventCustomURL, radio_menu_callback, app);
-}
-
-static void radio_install_menu_callbacks(RadioApp* app) {
-    radio_rebuild_menu(app, NULL);
-    /* Callbacks were attached by radio_rebuild_menu; nothing more to do. */
 }
 
 static int32_t radio_play_worker(void* ctx) {
@@ -71,7 +142,7 @@ static void radio_stop_worker(RadioApp* app) {
         furi_thread_free(app->worker);
         app->worker = NULL;
     }
-    radio_view_set_status(app->player_view, 0, 80, "Stopped");
+    radio_view_set_status(app->player_view, 0, app->volume, "Stopped");
 }
 
 static void radio_stop_callback(void* context) {
@@ -83,7 +154,7 @@ static void radio_vol_callback(void* context, int8_t delta) {
     RadioApp* app = context;
     int v = (int)app->volume + delta;
     if(v < 0) v = 0;
-    if(v > 100) v = 100;
+    if(v > 150) v = 150;
     app->volume = (uint8_t)v;
     mp3_sink_set_volume(app->volume);
 }
@@ -98,8 +169,21 @@ static bool radio_custom_event_callback(void* context, uint32_t event) {
     if(event == RadioEventStop) {
         radio_stop_worker(app);
         radio_rebuild_menu(app, NULL);
-        radio_install_menu_callbacks(app);
-        view_dispatcher_switch_to_view(app->dispatcher, RadioViewSubmenu);
+        radio_switch(app, RadioViewSubmenu);
+        return true;
+    }
+    if(event == RadioEventBackToGenres ||
+       (event >= RadioEventGenreBase && event < RadioEventGenreBase + 32)) {
+        if(event == RadioEventBackToGenres) {
+            app->menu_level = 0;
+        } else {
+            uint8_t gi = (uint8_t)(event - RadioEventGenreBase);
+            if(gi < RADIO_GENRE_COUNT) {
+                app->cur_genre = gi;
+                app->menu_level = 1;
+            }
+        }
+        radio_rebuild_menu(app, NULL);
         return true;
     }
     if(event == RadioEventCustomURL) {
@@ -108,13 +192,13 @@ static bool radio_custom_event_callback(void* context, uint32_t event) {
         text_input_set_result_callback(
             app->text_input, radio_text_done_callback, app, app->text_buf,
             sizeof(app->text_buf), true);
-        view_dispatcher_switch_to_view(app->dispatcher, RadioViewInput);
+        radio_switch(app, RadioViewInput);
         return true;
     }
     if(event == RadioEventCustomURL + 1) {
         /* Custom URL entered: play it directly. */
         if(app->text_buf[0] == '\0') {
-            view_dispatcher_switch_to_view(app->dispatcher, RadioViewSubmenu);
+            radio_switch(app, RadioViewSubmenu);
             return true;
         }
         Wifi* wifi = furi_record_open(RECORD_WIFI);
@@ -122,14 +206,13 @@ static bool radio_custom_event_callback(void* context, uint32_t event) {
         furi_record_close(RECORD_WIFI);
         if(!connected) {
             radio_rebuild_menu(app, "WiFi offline");
-            radio_install_menu_callbacks(app);
-            view_dispatcher_switch_to_view(app->dispatcher, RadioViewSubmenu);
+            radio_switch(app, RadioViewSubmenu);
             return true;
         }
         radio_view_set_station(app->player_view, "Custom");
         radio_view_set_track(app->player_view, app->text_buf);
-        radio_view_set_status(app->player_view, 0, 80, "Buffering...");
-        view_dispatcher_switch_to_view(app->dispatcher, RadioViewPlayer);
+        radio_view_set_status(app->player_view, 0, app->volume, "Buffering...");
+        radio_switch(app, RadioViewPlayer);
         app->worker_run = true;
         /* Stash URL in text_buf (already there); worker reads it. */
         app->worker = furi_thread_alloc_ex("RadioPlay", 4096, radio_play_worker, app);
@@ -137,22 +220,23 @@ static bool radio_custom_event_callback(void* context, uint32_t event) {
         return true;
     }
     if(event >= RadioEventStationBase && event < RadioEventStationBase + RADIO_MAX_STATIONS) {
+        const RadioGenreDef* g = &radio_genres[app->cur_genre];
         uint8_t idx = (uint8_t)(event - RadioEventStationBase);
-        if(idx >= app->station_count) return true;
+        if(app->menu_level != 1 || idx >= g->count) return true;
         Wifi* wifi = furi_record_open(RECORD_WIFI);
         bool connected = wifi_is_connected(wifi);
         furi_record_close(RECORD_WIFI);
         if(!connected) {
             radio_rebuild_menu(app, "WiFi offline");
-            radio_install_menu_callbacks(app);
-            view_dispatcher_switch_to_view(app->dispatcher, RadioViewSubmenu);
+            radio_switch(app, RadioViewSubmenu);
             return true;
         }
-        strncpy(app->text_buf, app->stations[idx].url, sizeof(app->text_buf) - 1);
-        radio_view_set_station(app->player_view, app->stations[idx].name);
+        strncpy(app->text_buf, g->stations[idx].url, sizeof(app->text_buf) - 1);
+        app->text_buf[sizeof(app->text_buf) - 1] = '\0';
+        radio_view_set_station(app->player_view, g->stations[idx].name);
         radio_view_set_track(app->player_view, "");
-        radio_view_set_status(app->player_view, 0, 80, "Buffering...");
-        view_dispatcher_switch_to_view(app->dispatcher, RadioViewPlayer);
+        radio_view_set_status(app->player_view, 0, app->volume, "Buffering...");
+        radio_switch(app, RadioViewPlayer);
         app->worker_run = true;
         app->worker = furi_thread_alloc_ex("RadioPlay", 4096, radio_play_worker, app);
         furi_thread_start(app->worker);
@@ -163,6 +247,12 @@ static bool radio_custom_event_callback(void* context, uint32_t event) {
 
 static bool radio_back_event_callback(void* context) {
     RadioApp* app = context;
+    if(app->current_view == RadioViewSubmenu && app->menu_level == 1) {
+        /* Back from a station list returns to the genre list. */
+        app->menu_level = 0;
+        radio_rebuild_menu(app, NULL);
+        return true;
+    }
     radio_stop_worker(app);
     return false;
 }
@@ -170,14 +260,8 @@ static bool radio_back_event_callback(void* context) {
 static RadioApp* radio_alloc(void) {
     RadioApp* app = malloc(sizeof(RadioApp));
     memset(app, 0, sizeof(RadioApp));
-    app->volume = 80;
-
-    size_t n = sizeof(radio_default_stations) / sizeof(radio_default_stations[0]);
-    if(n > RADIO_MAX_STATIONS) n = RADIO_MAX_STATIONS;
-    for(size_t i = 0; i < n; i++) {
-        app->stations[i] = radio_default_stations[i];
-    }
-    app->station_count = (uint8_t)n;
+    app->volume = 100;
+    app->current_view = RadioViewSubmenu;
 
     app->gui = furi_record_open(RECORD_GUI);
     app->dispatcher = view_dispatcher_alloc();
@@ -200,10 +284,9 @@ static RadioApp* radio_alloc(void) {
         app->dispatcher, RadioViewPlayer, radio_view_get_view(app->player_view));
 
     radio_rebuild_menu(app, NULL);
-    radio_install_menu_callbacks(app);
 
     /* Select the initial view (same viewless-dispatcher trap as voice memo). */
-    view_dispatcher_switch_to_view(app->dispatcher, RadioViewSubmenu);
+    radio_switch(app, RadioViewSubmenu);
 
     view_dispatcher_attach_to_gui(app->dispatcher, app->gui, ViewDispatcherTypeFullscreen);
     return app;
