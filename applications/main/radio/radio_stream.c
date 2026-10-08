@@ -94,30 +94,74 @@ static size_t radio_icy_filter(RadioStream* st, const uint8_t* in, size_t len, u
 bool radio_stream_play(RadioApp* app, const char* url) {
     if(!app || !url) return false;
 
+    /* Manual HTTP flow: open() connects AND sends the request, but the
+     * response status is only populated by fetch_headers() — calling
+     * get_status_code() without it always returns 0. Follow a few redirects
+     * (ice servers commonly 301 to another host). */
+    char url_buf[256];
+    strncpy(url_buf, url, sizeof(url_buf) - 1);
+    url_buf[sizeof(url_buf) - 1] = '\0';
+
+    /* Function scope: esp_http_client may reference cfg fields after init. */
     esp_http_client_config_t cfg = {
-        .url = url,
+        .url = url_buf,
         .timeout_ms = RADIO_HTTP_TIMEOUT_MS,
     };
-    esp_http_client_handle_t client = esp_http_client_init(&cfg);
-    if(!client) return false;
-    esp_http_client_set_header(client, "Icy-MetaData", "1");
-    esp_http_client_set_header(client, "User-Agent", "FlipperZero-Radio/1.0");
 
-    esp_err_t open_err = esp_http_client_open(client, 0);
-    if(open_err != ESP_OK) {
-        FURI_LOG_E(TAG, "open failed: %s (0x%x) url=%s", esp_err_to_name(open_err), open_err,
-                   url);
-        esp_http_client_cleanup(client);
-        return false;
+    esp_http_client_handle_t client = NULL;
+    int status = 0;
+    for(int hop = 0; hop < 4; hop++) {
+        cfg.url = url_buf; /* refreshed each hop (url_buf may change) */
+        client = esp_http_client_init(&cfg);
+        if(!client) return false;
+        esp_http_client_set_header(client, "Icy-MetaData", "1");
+        esp_http_client_set_header(client, "User-Agent", "FlipperZero-Radio/1.0");
+
+        esp_err_t open_err = esp_http_client_open(client, 0);
+        if(open_err != ESP_OK) {
+            FURI_LOG_E(
+                TAG, "open failed: %s (0x%x) url=%s", esp_err_to_name(open_err), open_err,
+                url_buf);
+            esp_http_client_cleanup(client);
+            return false;
+        }
+        int64_t content_len = esp_http_client_fetch_headers(client);
+        status = esp_http_client_get_status_code(client);
+        FURI_LOG_I(
+            TAG, "HTTP status=%d len=%lld hop=%d url=%s", status, (long long)content_len, hop,
+            url_buf);
+
+        if(status >= 300 && status < 400) {
+            char* loc = NULL;
+            if(esp_http_client_get_header(client, "location", &loc) == ESP_OK && loc &&
+               strncmp(loc, "http", 4) == 0) {
+                FURI_LOG_I(TAG, "redirect %d -> %s", status, loc);
+                strncpy(url_buf, loc, sizeof(url_buf) - 1);
+                url_buf[sizeof(url_buf) - 1] = '\0';
+                esp_http_client_close(client);
+                esp_http_client_cleanup(client);
+                client = NULL;
+                continue;
+            }
+            FURI_LOG_E(TAG, "redirect %d without usable location", status);
+            esp_http_client_close(client);
+            esp_http_client_cleanup(client);
+            return false;
+        }
+        if(status < 200 || status >= 300) {
+            FURI_LOG_E(TAG, "unexpected status, aborting");
+            esp_http_client_close(client);
+            esp_http_client_cleanup(client);
+            return false;
+        }
+        break; /* 2xx — response ready */
     }
-    int status = esp_http_client_get_status_code(client);
-    int64_t content_len = esp_http_client_get_content_length(client);
-    (void)content_len;
-    FURI_LOG_I(TAG, "HTTP status=%d len=%lld", status, (long long)content_len);
-    if(status < 200 || status >= 300) {
-        FURI_LOG_E(TAG, "unexpected status, aborting");
-        esp_http_client_close(client);
-        esp_http_client_cleanup(client);
+    if(!client || status < 200 || status >= 300) {
+        FURI_LOG_E(TAG, "no usable stream response");
+        if(client) {
+            esp_http_client_close(client);
+            esp_http_client_cleanup(client);
+        }
         return false;
     }
 

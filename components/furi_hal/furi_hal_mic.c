@@ -119,8 +119,13 @@ size_t furi_hal_mic_read(int16_t* buf, size_t frames, uint32_t timeout_ms) {
     if(!buf || frames == 0 || !mic_rx_handle || !mic_started) return 0;
     size_t bytes_to_read = frames * sizeof(int16_t);
     size_t bytes_read = 0;
-    if(i2s_channel_read(mic_rx_handle, (void*)buf, bytes_to_read, &bytes_read, timeout_ms) !=
-       ESP_OK) {
+    esp_err_t err =
+        i2s_channel_read(mic_rx_handle, (void*)buf, bytes_to_read, &bytes_read, timeout_ms);
+    /* On ESP_ERR_TIMEOUT the driver has still filled part of the buffer with
+     * captured audio. Keep it — dropping partials here loses samples and makes
+     * the wall-clock-measured capture rate come out too low. */
+    if(bytes_read == 0 && err != ESP_OK) {
+        FURI_LOG_W(TAG, "mic read: %s (0x%x)", esp_err_to_name(err), err);
         return 0;
     }
     return bytes_read / sizeof(int16_t);

@@ -342,10 +342,13 @@ static bool notification_load_settings(NotificationApp* app) {
         app->settings = tmp;
         FURI_LOG_I(
             TAG,
-            "LOAD ok: brightness=%.2f vol=%.2f delay_ms=%u",
+            "LOAD ok: brightness=%.2f vol=%.2f delay_ms=%u ui_bg=%u ui_fg=%u custom=#%06lX",
             (double)app->settings.display_brightness,
             (double)app->settings.speaker_volume,
-            (unsigned)app->settings.display_off_delay_ms);
+            (unsigned)app->settings.display_off_delay_ms,
+            (unsigned)app->settings.ui_color_index,
+            (unsigned)app->settings.ui_fg_color_index,
+            (unsigned long)app->settings.ui_custom_color);
     } else {
         FURI_LOG_W(TAG, "LOAD failed — using defaults");
     }
@@ -719,6 +722,15 @@ void notification_apply_ui_color(NotificationApp* app) {
             furi_timer_stop(app->ui_spectrum_timer);
         }
     }
+
+    FURI_LOG_I(
+        TAG,
+        "apply ui color: bg_idx=%u fg_idx=%u custom=#%06lX -> fg=0x%04X bg=0x%04X",
+        (unsigned)bg_idx,
+        (unsigned)fg_idx,
+        (unsigned long)app->settings.ui_custom_color,
+        (unsigned)furi_hal_display_get_fg_color(),
+        (unsigned)furi_hal_display_get_bg_color());
 }
 
 static NotificationApp* notification_app_alloc(void) {

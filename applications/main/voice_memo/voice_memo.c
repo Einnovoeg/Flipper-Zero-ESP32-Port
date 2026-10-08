@@ -22,6 +22,10 @@
 #define VOICE_MEMO_SAMPLE_RATE 16000
 #define VOICE_MEMO_CHUNK_FRAMES 512
 #define VOICE_MEMO_WORKER_STACK 4096
+/* Record gain: mic peaks measured ~-6 dBFS (16227/32768), so x2 lands peaks
+ * at full scale with no practical clipping of speech. Raise to 3 only if the
+ * logged peak stays below ~11000. */
+#define VOICE_MEMO_RECORD_GAIN 2
 
 /* Submenu custom events: 0x100 + item index (0 = record new). */
 #define VOICE_MEMO_EV_ITEM_BASE 0x100
@@ -136,17 +140,22 @@ static int32_t voice_memo_record_thread(void* ctx) {
                 size_t got = furi_hal_mic_read(
                     chunk, VOICE_MEMO_CHUNK_FRAMES, 200);
                 if(got == 0) continue;
+                /* Level = peak of the RAW chunk (input diagnostic), then apply
+                 * the record gain before the samples hit the SD card. */
+                int peak = 0;
+                for(size_t i = 0; i < got; i++) {
+                    int v = chunk[i] < 0 ? -chunk[i] : chunk[i];
+                    if(v > peak) peak = v;
+                    int32_t g = (int32_t)chunk[i] * VOICE_MEMO_RECORD_GAIN;
+                    if(g > 32767) g = 32767;
+                    if(g < -32768) g = -32768;
+                    chunk[i] = (int16_t)g;
+                }
                 if(storage_file_write(f, chunk, got * sizeof(int16_t)) !=
                    got * sizeof(int16_t)) {
                     FURI_LOG_E(TAG, "SD write failed");
                     ok = false;
                     break;
-                }
-                /* Level = peak of chunk, elapsed from frame count. */
-                int peak = 0;
-                for(size_t i = 0; i < got; i++) {
-                    int v = chunk[i] < 0 ? -chunk[i] : chunk[i];
-                    if(v > peak) peak = v;
                 }
                 if((uint32_t)peak > max_peak) max_peak = (uint32_t)peak;
                 frames += got;

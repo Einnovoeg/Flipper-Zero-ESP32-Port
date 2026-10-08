@@ -82,7 +82,8 @@ static bool voice_memo_input(InputEvent* event, void* ctx) {
             VoiceMemoModel * m,
             {
                 if(m->mode == VoiceMemoViewModePlay && !m->stopped) {
-                    int v = (int)m->volume + (event->key == InputKeyUp ? +10 : -10);
+                    /* Knob feel, not menu feel: clockwise (Down) turns UP. */
+                    int v = (int)m->volume + (event->key == InputKeyDown ? +10 : -10);
                     if(v < 0) v = 0;
                     if(v > 100) v = 100;
                     m->volume = (uint8_t)v;
