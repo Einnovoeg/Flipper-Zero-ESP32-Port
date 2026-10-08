@@ -57,6 +57,9 @@ typedef enum {
 
 /* ---- Static state ---- */
 static FuriMutex* speaker_mutex = NULL;
+/* Guards i2s_tx_handle between the writer thread and acquire/release. The
+ * writer never takes speaker_mutex, so there is no lock ordering cycle. */
+static FuriMutex* channel_mutex = NULL;
 static i2s_chan_handle_t i2s_tx_handle = NULL;
 static bool i2s_channel_enabled = false;
 
@@ -138,8 +141,13 @@ static int32_t speaker_writer_thread(void* context) {
                 speaker_generate_buffer();
             }
             if(wave_buffer && wave_buffer_bytes > 0) {
-                size_t bytes_written = 0;
-                i2s_channel_write(i2s_tx_handle, wave_buffer, wave_buffer_bytes, &bytes_written, 100);
+                furi_mutex_acquire(channel_mutex, FuriWaitForever);
+                if(i2s_tx_handle) {
+                    size_t bytes_written = 0;
+                    i2s_channel_write(
+                        i2s_tx_handle, wave_buffer, wave_buffer_bytes, &bytes_written, 100);
+                }
+                furi_mutex_release(channel_mutex);
             }
             continue;
         }
@@ -164,8 +172,13 @@ static int32_t speaker_writer_thread(void* context) {
                 mirror_buf[i * 2 + 1] = s;
             }
 
-            size_t bytes_written = 0;
-            i2s_channel_write(i2s_tx_handle, mirror_buf, sizeof(mirror_buf), &bytes_written, 100);
+            furi_mutex_acquire(channel_mutex, FuriWaitForever);
+            if(i2s_tx_handle) {
+                size_t bytes_written = 0;
+                i2s_channel_write(
+                    i2s_tx_handle, mirror_buf, sizeof(mirror_buf), &bytes_written, 100);
+            }
+            furi_mutex_release(channel_mutex);
             continue;
         }
 
@@ -178,20 +191,19 @@ static int32_t speaker_writer_thread(void* context) {
 
 /* ---- Public API ---- */
 
-void furi_hal_speaker_init(void) {
-    furi_assert(speaker_mutex == NULL);
-    speaker_mutex = furi_mutex_alloc(FuriMutexTypeNormal);
-
-    /* Release pin 40 from LCD RST usage — the display driver only pulses it
-     * during init and does not need it afterwards. */
-    gpio_reset_pin((gpio_num_t)BOARD_PIN_SPEAKER_WCLK);
-
-    /* Configure I2S standard mode */
+/* Create + configure the I2S0 TX channel. Called lazily on first acquire so the
+ * single TX slot of I2S0 stays free for Mp3I2S (radio/voice/streaming) until a
+ * tone is actually needed; returns an error instead of aborting if the slot is
+ * currently held by another user. */
+static esp_err_t speaker_create_channel(void) {
     i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     chan_cfg.dma_desc_num = SPEAKER_DMA_DESC_NUM;
     chan_cfg.dma_frame_num = SPEAKER_DMA_FRAME_NUM;
     chan_cfg.auto_clear = true; /* send silence when no data */
-    ESP_ERROR_CHECK(i2s_new_channel(&chan_cfg, &i2s_tx_handle, NULL));
+
+    i2s_chan_handle_t handle = NULL;
+    esp_err_t err = i2s_new_channel(&chan_cfg, &handle, NULL);
+    if(err != ESP_OK) return err;
 
     i2s_std_config_t std_cfg = {
         .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(SPEAKER_SAMPLE_RATE),
@@ -209,7 +221,29 @@ void furi_hal_speaker_init(void) {
             },
         },
     };
-    ESP_ERROR_CHECK(i2s_channel_init_std_mode(i2s_tx_handle, &std_cfg));
+    err = i2s_channel_init_std_mode(handle, &std_cfg);
+    if(err != ESP_OK) {
+        i2s_del_channel(handle);
+        return err;
+    }
+
+    i2s_tx_handle = handle;
+    i2s_channel_enabled = false;
+    return ESP_OK;
+}
+
+void furi_hal_speaker_init(void) {
+    furi_assert(speaker_mutex == NULL);
+    speaker_mutex = furi_mutex_alloc(FuriMutexTypeNormal);
+    channel_mutex = furi_mutex_alloc(FuriMutexTypeNormal);
+
+    /* Release pin 40 from LCD RST usage — the display driver only pulses it
+     * during init and does not need it afterwards. */
+    gpio_reset_pin((gpio_num_t)BOARD_PIN_SPEAKER_WCLK);
+
+    /* The I2S TX channel is created lazily in furi_hal_speaker_acquire() so
+     * Mp3I2S (which drives the same speaker) can own the single I2S0 TX slot
+     * during radio/voice/streaming playback. */
 
     /* Start the writer thread (it idles until speaker_mode != Idle) */
     speaker_thread = furi_thread_alloc_ex("SpeakerWorker", SPEAKER_THREAD_STACK, speaker_writer_thread, NULL);
@@ -230,12 +264,16 @@ void furi_hal_speaker_deinit(void) {
     speaker_thread = NULL;
 
     /* Tear down I2S */
-    if(i2s_channel_enabled) {
-        i2s_channel_disable(i2s_tx_handle);
-        i2s_channel_enabled = false;
+    furi_mutex_acquire(channel_mutex, FuriWaitForever);
+    if(i2s_tx_handle) {
+        if(i2s_channel_enabled) {
+            i2s_channel_disable(i2s_tx_handle);
+            i2s_channel_enabled = false;
+        }
+        i2s_del_channel(i2s_tx_handle);
+        i2s_tx_handle = NULL;
     }
-    i2s_del_channel(i2s_tx_handle);
-    i2s_tx_handle = NULL;
+    furi_mutex_release(channel_mutex);
 
     /* Free buffer */
     if(wave_buffer) {
@@ -243,6 +281,8 @@ void furi_hal_speaker_deinit(void) {
         wave_buffer = NULL;
     }
 
+    furi_mutex_free(channel_mutex);
+    channel_mutex = NULL;
     furi_mutex_free(speaker_mutex);
     speaker_mutex = NULL;
 }
@@ -250,15 +290,28 @@ void furi_hal_speaker_deinit(void) {
 bool furi_hal_speaker_acquire(uint32_t timeout) {
     furi_check(!FURI_IS_IRQ_MODE());
 
-    if(furi_mutex_acquire(speaker_mutex, timeout) == FuriStatusOk) {
-        /* Enable I2S channel on first acquire */
-        if(!i2s_channel_enabled) {
-            ESP_ERROR_CHECK(i2s_channel_enable(i2s_tx_handle));
+    if(furi_mutex_acquire(speaker_mutex, timeout) != FuriStatusOk) return false;
+
+    /* Create the channel on first use. If Mp3I2S currently owns the I2S0 TX
+     * slot this fails — report failure so the caller skips the tone instead of
+     * aborting. */
+    furi_mutex_acquire(channel_mutex, FuriWaitForever);
+    if(i2s_tx_handle == NULL) {
+        esp_err_t err = speaker_create_channel();
+        if(err != ESP_OK) {
+            furi_mutex_release(channel_mutex);
+            furi_mutex_release(speaker_mutex);
+            FURI_LOG_W(TAG, "I2S0 TX busy (%s) — tone skipped", esp_err_to_name(err));
+            return false;
+        }
+    }
+    if(!i2s_channel_enabled) {
+        if(i2s_channel_enable(i2s_tx_handle) == ESP_OK) {
             i2s_channel_enabled = true;
         }
-        return true;
     }
-    return false;
+    furi_mutex_release(channel_mutex);
+    return true;
 }
 
 void furi_hal_speaker_release(void) {
@@ -266,6 +319,21 @@ void furi_hal_speaker_release(void) {
     furi_check(furi_hal_speaker_is_mine());
 
     furi_hal_speaker_stop();
+
+    /* Free the I2S0 TX slot so Mp3I2S can claim it. Taking channel_mutex waits
+     * for any in-flight writer-thread write to finish; after stop() the writer
+     * will not start a new one. */
+    furi_mutex_acquire(channel_mutex, FuriWaitForever);
+    if(i2s_tx_handle) {
+        if(i2s_channel_enabled) {
+            i2s_channel_disable(i2s_tx_handle);
+            i2s_channel_enabled = false;
+        }
+        i2s_del_channel(i2s_tx_handle);
+        i2s_tx_handle = NULL;
+    }
+    furi_mutex_release(channel_mutex);
+
     furi_check(furi_mutex_release(speaker_mutex) == FuriStatusOk);
 }
 
